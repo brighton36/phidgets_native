@@ -6,7 +6,7 @@ library) are what you need.
 
 ==What's a Phidget?
 Phidgets are well supported on almost any operating system, and require practically
-no knowledge of electrical engineering or digital circutry. Each device is a stand-
+no knowledge of electrical engineering or digital circuitry. Each device is a stand-
 alone "plug and play" building block that works on it's own , or in conjunction
 with other phidgets.
 
@@ -29,10 +29,10 @@ running the ffi gem on an arm environments is outright unusable.
 
 Caveats aside, the Phidgets-FFI library interfaces are elegant and well thought-out, 
 and this library's interfaces (and even this README) are heavily influenced by 
-them. Converting your existing codebase to use this library shouldn't be too 
+them. Converting your existing code base to use this library shouldn't be too 
 difficult.
 
-==Differencies with Phidgets-FFI
+==Differences with Phidgets-FFI
 The Phidgets-FFI library has a number of methods which accept blocks. This library
 has none. Maybe that will change in the future.
 
@@ -141,8 +141,8 @@ the provided timeout is exceeded.
   # halt the program for up 20000 microseconds or until the Phidget is connected:
   ifkit.wait_for_attachment 20000 
 
-Though optional, it's reccomended that you call close when you're done using your
-phidget or when quiting your program.
+Though optional, it's recommended that you call close when you're done using your
+phidget or when quitting your program.
 
   ifkit.close
 

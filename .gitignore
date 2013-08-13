@@ -1,0 +1,4 @@
+lib/*.bundle
+lib/*.so
+tmp/*
+doc/*

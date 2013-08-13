@@ -1,0 +1,163 @@
+=What is Phidgets-Native
+This library is a set of classes for use with the excellent USB sensing and 
+controller devices available for sale on phidgets.com. If you're a ruby programmer
+and need to interface your code with meat-space concerns, these devices (and this
+library) are what you need. 
+
+==What's a Phidget?
+Phidgets are well supported on almost any operating system, and require practically
+no knowledge of electrical engineering or digital circutry. Each device is a stand-
+alone "plug and play" building block that works on it's own , or in conjunction
+with other phidgets.
+
+You can browse the phidget product catalog on {www.phidgets.com}[http://www.phidgets.com].
+
+==Tested Environments
+As of this writing, this gem is stable, and actively tested on:
+* x86_64 on OS X
+* x86_64 on Linux
+* armv6l on Linux
+
+Presumably most other UNIX variants will work just fine. Probably win32/win64 
+will not.
+
+=Why not Phidgets-FFI?
+Though encompassing, Phigets-FFI is seemingly quite buggy, and a bit slow. Especially
+with Garbage collection turned on. I think that the threading model of the Phidgets
+C API is simply incompatible with the design on the ruby-ffi library. Additionally,
+running the ffi gem on an arm environments is outright unusable.
+
+Caveats aside, the Phidgets-FFI library interfaces are elegant and well thought-out, 
+and this library's interfaces (and even this README) are heavily influenced by 
+them. Converting your existing codebase to use this library shouldn't be too 
+difficult.
+
+==Differencies with Phidgets-FFI
+The Phidgets-FFI library has a number of methods which accept blocks. This library
+has none. Maybe that will change in the future.
+
+There are currently no plans to support event-driven interfaces. Though this was
+an excellent feature of the ffi library, it adds a significant degree of complexity.
+to a stable implementation of this library. Indeed, most of the stability issues
+arise when attempting to use these features in the ffi implementation.
+
+Additionally, the phidgets-ffi implementation is a little strange with it's support
+of device disconnects and reconnects. Here in the 'native' implementation, once
+a device object is created, it stays 'active' regardless of whether the device
+is attached. If the device is disconnected and reconnected, your phidget object
+will automatically re-register its handlers with the device and continue to 
+function as if the device were never disconnected to begin with. Keep in mind that
+any attributes relating to the device's capabilities (mostly those in the 
+Phidget::Device class, though there are things like the axial extents in the 
+spatial object) will be 'cached' from the previous connection. "State" attributes
+(such as the spatial's accelerometer output) will return nil or 0.
+
+In practice, if you need an event-driven model for your code, you can almost certainly
+get by well using a ruby thread with a polling loop such as the following:
+
+  is_fixed_last = false 
+  @poller = Thread.new(Phidget::GPS(12345)) do |gps| 
+    gps.wait_for_attachment(10000)
+
+    begin
+      on_fixed_change(gps.is_fixed) if is_fixed_last != gps.is_fixed
+      is_fixed_last = gps.is_fixed?
+    end while sleep(0.1) 
+  end
+
+  # Carry on with the rest of your code here
+
+I'm fairly certain that until ruby supports actual kernel-based threads, this is 
+the best you can reasonably do.
+
+=Getting Started
+First, we need to set up the proper environment and get the necessary files off 
+the Phidgets website. Visit the drivers section at www.phidgets.com and get the 
+latest Phidget driver for your system. 
+
+We also recommend that you read the following reference materials:
+* {General Phidget Programming}[http://www.phidgets.com/docs/General_Phidget_Programming]
+* The {User Guide}[http://www.phidgets.com/docs/Category:UserGuide] for your device
+* {RubyDoc API Documentation}[http://rubydoc.info/gems/phidgets-native/frames]
+* {Ruby code samples}[https://github.com/kreynolds/phidgets-native/tree/master/examples]
+
+The RubyDoc API manual contains calls and events for every type of Phidget and 
+can be used as a reference. You can find a high level discussion about programming 
+with Phidgets in general on the General Phidget Programming page. 
+The user guide for your device also contains an API section that describes 
+limitations, defaults, and implementation details specific to your Phidget. 
+
+==Installing the phidgets-native gem
+To install:
+  gem install phidgets-native
+
+phidgets-native is very self contained. There's no dependencies on other ruby 
+gems or non-standard libraries. However, in order to compile this gem, you'll
+need a suitable build environment for your system (clang on OSX or gcc on Linux),
+and the aforementioned phidgets driver.
+
+==Coding for your Phidget
+Before you can use the Phidget, you must include a reference to the phidgets-native 
+gem:
+  require "rubygems"
+  require "phidgets-native"
+
+Afterwards, Phidgets can be instantiated by creating the appropriate device class 
+object, with the device serial number passed to its constructor. At the moment, 
+only the 'local' devices are supported. If there's enough interest (or contributors)
+I may add support for the 'remote' protocols which allow you to open a device
+via its computer's IP address.
+
+  spatial = Phidgets::Spatial.new 54321
+
+The object name for any type of Phidget is listed in the API manual. Every type 
+of Phidget also inherits functionality from the Phidget base class (Which cannot
+be instantiated by itself directly). 
+
+If you don't know the serial number of the device you're looking for, you can 
+use the Phidget.all method to return an array of the currently connected Phidgets
+and/or you can simply run the included list_all.rb example.
+
+One important thing to remember is that when working with Phidgets, a local connection 
+will reserve the device until closed. This prevents any other instances from 
+retrieving data from the Phidget, including other programs. 
+
+==Standard accessors
+All devices support the accessors defined in the Phidget::Device class from which
+they inherit. 
+
+==A note about device availability
+Simply calling the constructor does not guarantee you can use the Phidget 
+immediately. The constructor merely sets up the Phidget handlers and event hooks,
+but does not block the interpreter while it waits for the device to register. 
+For most people, you'll want immediate access to the phidget after the class has
+been instantiated. As such, you'll need to call the wait_for_attachment method
+on your new instance in order to start accessing the device properties.
+
+wait_for_attachment will block until a connection is made to the Phidget or until
+the provided timeout is exceeded.
+
+  ifkit = Phidgets::InterfaceKit.new 24680
+  # halt the program for up 20000 microseconds or until the Phidget is connected:
+  ifkit.wait_for_attachment 20000 
+
+Though optional, it's reccomended that you call close when you're done using your
+phidget or when quiting your program.
+
+  ifkit.close
+
+==Working with Multiple Phidgets
+Multiple Phidgets of the same or different types can easily be run inside the 
+same program. However, there is seemingly a six-device limit, which is imposed 
+by the Phidget API and/or hardware.
+
+==Logging
+The phidget api has built in debug logging which can be enabled on a global basis
+for all devices. By default, logs are sent to STDOUT, but you can optionally 
+pass a path to a text file where output can alternatively be redirected. You can
+also send your own messages to the logger, if you think you have something you
+need to add.
+
+  Phidgets.enable_logging!(:verbose)
+  Phidgets.log :info, "My favorite color is chartreuse"
+  Phidgets.disable_logging!

@@ -78,6 +78,7 @@ VALUE phidget_all(VALUE class) {
   int num_devices = 0;
   int *serial_number;
   const char **device_type;
+  CPhidget_DeviceClass *device_class; 
 
   CPhidgetHandle *handles;
 	CPhidgetManagerHandle man_handle = 0;
@@ -94,10 +95,12 @@ VALUE phidget_all(VALUE class) {
 
   serial_number = ALLOC_N(int, num_devices);
   device_type = ALLOC_N(const char*, num_devices);
+  device_class = ALLOC_N(CPhidget_DeviceClass, num_devices);
 
   for( int i=0; i<num_devices; i++) {
     ensure(CPhidget_getSerialNumber(handles[i], &serial_number[i]));
     ensure(CPhidget_getDeviceType(handles[i], &device_type[i]));
+    ensure(CPhidget_getDeviceClass(handles[i], &device_class[i]));
   }
 
   // Then we free the Phidget library resources
@@ -113,29 +116,85 @@ VALUE phidget_all(VALUE class) {
 
   // And start constructing the ruby return value:
   VALUE devices = rb_ary_new2(num_devices);
-  VALUE phidget_module = rb_const_get(rb_cObject, rb_intern("Phidgets"));
+  VALUE phidget_module = rb_const_get(rb_cObject, rb_intern("PhidgetsNative"));
 
   for(int i=0; i<num_devices; i++) {
     ID class_const;
-    VALUE device_class;
+    VALUE c_Exception;
+    VALUE device_klass;
     VALUE device_instance;
 
     VALUE *args = ALLOC_N(VALUE, 1);
     args[0] = INT2FIX(serial_number[i]);
 
-    if (strcmp("PhidgetSpatial", device_type[i]) == 0)
-      class_const = rb_intern("Spatial");
-    else if (strcmp("PhidgetInterfaceKit", device_type[i]) == 0)
-      class_const = rb_intern("InterfaceKit");
-    else if (strcmp("PhidgetGPS", device_type[i]) == 0)
-      class_const = rb_intern("GPS");
-    else {
-      VALUE c_Exception = rb_const_get(phidget_module, rb_intern("UnsupportedError"));
-      rb_raise(c_Exception, "%s \"%s\"", MSG_UNSUPPORTED_DEVICE_ENUMERATED, device_type[i]);
+    switch (device_class[i]) {
+      case PHIDCLASS_ACCELEROMETER:
+        class_const = rb_intern("Accelerometer");
+        break;
+      case PHIDCLASS_ADVANCEDSERVO:
+        class_const = rb_intern("AdvancedServo");
+        break;
+      case PHIDCLASS_ANALOG:
+        class_const = rb_intern("Analog");
+        break;
+      case PHIDCLASS_BRIDGE:
+        class_const = rb_intern("Bridge");
+        break;
+      case PHIDCLASS_ENCODER:
+        class_const = rb_intern("Encoder");
+        break;
+      case PHIDCLASS_FREQUENCYCOUNTER:
+        class_const = rb_intern("FrequencyCounter");
+        break;
+      case PHIDCLASS_GPS:
+        class_const = rb_intern("GPS");
+        break;
+      case PHIDCLASS_INTERFACEKIT:
+        class_const = rb_intern("InterfaceKit");
+        break;
+      case PHIDCLASS_IR:
+        class_const = rb_intern("IR");
+        break;
+      case PHIDCLASS_LED:
+        class_const = rb_intern("LED");
+        break;
+      case PHIDCLASS_MOTORCONTROL:
+        class_const = rb_intern("MotorControl");
+        break;
+      case PHIDCLASS_PHSENSOR:
+        class_const = rb_intern("PHSensor");
+        break;
+      case PHIDCLASS_RFID:
+        class_const = rb_intern("RFID");
+        break;
+      case PHIDCLASS_SERVO:
+        class_const = rb_intern("Servo");
+        break;
+      case PHIDCLASS_SPATIAL:
+        class_const = rb_intern("Spatial");
+        break;
+      case PHIDCLASS_STEPPER:
+        class_const = rb_intern("Stepper");
+        break;
+      case PHIDCLASS_TEMPERATURESENSOR:
+        class_const = rb_intern("TemperatureSensor");
+        break;
+      case PHIDCLASS_TEXTLCD:
+        class_const = rb_intern("TextLCD");
+        break;
+      case PHIDCLASS_TEXTLED:
+        class_const = rb_intern("TextLED");
+        break;
+      case PHIDCLASS_WEIGHTSENSOR:
+        class_const = rb_intern("WeightSensor");
+        break;
+      default:
+        c_Exception = rb_const_get(phidget_module, rb_intern("UnsupportedError"));
+        rb_raise(c_Exception, "%s \"%s\"", MSG_UNSUPPORTED_DEVICE_ENUMERATED, device_type[i]);
     }
 
-    device_class = rb_const_get(phidget_module, class_const);
-    device_instance = rb_class_new_instance(1, args, device_class);
+    device_klass = rb_const_get(phidget_module, class_const);
+    device_instance = rb_class_new_instance(1, args, device_klass);
     rb_funcall(device_instance, rb_intern("wait_for_attachment"), 1, INT2FIX(1000));
     rb_ary_store(devices, i, device_instance);
 
@@ -144,6 +203,7 @@ VALUE phidget_all(VALUE class) {
 
   xfree(serial_number);
   xfree(device_type);
+  xfree(device_class);
 
   return devices;
 }

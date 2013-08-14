@@ -5,12 +5,12 @@ $:.push *['%s/../lib/', '%s/lib/'].collect{|p| p % File.dirname(__FILE__) }
 require 'console_table'
 require 'phidgets_native'
 
-#Phidgets.enable_logging! :verbose
+#PhidgetsNative.enable_logging! :verbose
 
-puts "Using Library version: "+Phidgets::LIBRARY_VERSION
+puts "Using Library version: "+PhidgetsNative::LIBRARY_VERSION
 
 ConsoleTable.new(%w(Serial\ No. Type Class Name Version)).output do
-  Phidgets.all.enum_for(:each_with_index).collect{ |p,i|
+  PhidgetsNative.all.enum_for(:each_with_index).collect{ |p,i|
     %w(serial_number type device_class name version).collect{|attr| p.send attr}
   }
 end

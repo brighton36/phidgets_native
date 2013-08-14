@@ -1,4 +1,4 @@
-=What is Phidgets_Native
+=What is PhidgetsNative
 This library is a set of classes for use with the excellent USB sensing and 
 controller devices available for sale on phidgets.com. If you're a ruby programmer
 and need to interface your code with meat-space concerns, these devices (and this
@@ -120,7 +120,7 @@ only the 'local' devices are supported. If there's enough interest (or contribut
 I may add support for the 'remote' protocols which allow you to open a device
 via its computer's IP address.
 
-  spatial = Phidgets::Spatial.new 54321
+  spatial = PhidgetsNative::Spatial.new 54321
 
 The object name for any type of Phidget is listed in the API manual. Every type 
 of Phidget also inherits functionality from the Phidget base class (Which cannot
@@ -149,7 +149,7 @@ on your new instance in order to start accessing the device properties.
 The wait_for_attachment method will block until a connection is made to the 
 Phidget or until the provided timeout is exceeded.
 
-  ifkit = Phidgets::InterfaceKit.new 24680
+  ifkit = PhidgetsNative::InterfaceKit.new 24680
   # halt the program for up 20000 microseconds or until the Phidget is connected:
   ifkit.wait_for_attachment 20000 
 
@@ -170,6 +170,6 @@ pass a path to a text file where output can alternatively be redirected. You can
 also send your own messages to the logger, if you think you have something you
 need to add.
 
-  Phidgets.enable_logging!(:verbose)
-  Phidgets.log :info, "My favorite color is chartreuse"
-  Phidgets.disable_logging!
+  PhidgetsNative.enable_logging!(:verbose)
+  PhidgetsNative.log :info, "My favorite color is chartreuse"
+  PhidgetsNative.disable_logging!

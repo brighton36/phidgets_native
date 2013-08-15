@@ -85,7 +85,7 @@ int ensure(int result) {
   const char *description;
   CPhidget_getErrorDescription(result, &description);
 
-  VALUE m_Phidget = rb_const_get(rb_cObject, rb_intern("Phidgets"));  
+  VALUE m_Phidget = rb_const_get(rb_cObject, rb_intern("PhidgetsNative"));  
   VALUE c_Exception = rb_const_get(m_Phidget, rb_intern(exception_name));
 
   rb_raise(c_Exception, "%s", description);

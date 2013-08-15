@@ -6,14 +6,22 @@ require 'console_table'
 require 'phidgets_native'
 
 # To keep things DRY, I went ahead and put this here:
-def phidgets_example_for(device, &block)
+def phidgets_example_for(device, extended_attribs = [], &block)
   trap("SIGINT"){ device.close; exit }
 
-  device.wait_for_attachment 10000
+  begin
+    device.wait_for_attachment 10000
+  rescue PhidgetsNative::TimeoutError
+    puts "Unable to enumerate the phidget of type %s with the serial number %d." % [
+      device.class.to_s, device.serial_number]
+    exit
+  end
 
   puts "Using Library version: "+PhidgetsNative::LIBRARY_VERSION
 
   puts "\nDevice Attributes:"
+
+  # TODO: Take care of the extended_attribs
 
   ConsoleTable.new(%w(Attribute Value)).output do
     [ ["Type", device.type.inspect],

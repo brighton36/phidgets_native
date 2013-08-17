@@ -2,4 +2,5 @@ lib/*.bundle
 lib/*.so
 tmp/*
 doc/*
+pkg/*
 *.swp

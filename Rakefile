@@ -1,9 +1,17 @@
 # File: Rakefile
 
 require 'rake/extensiontask'
+require 'rake/packagetask'
 require 'rdoc/task'
 
-Rake::ExtensionTask.new('phidgets_native')
+spec = Gem::Specification.load('phidgets_native.gemspec')
+
+Rake::ExtensionTask.new 'phidgets_native', spec
+
+Gem::PackageTask.new(spec) do |pkg|
+  
+
+end
 
 RDOC_FILES = FileList["README.rdoc", "ext/phidgets_native/phidgets_native_ruby.c", 
   "ext/phidgets_native/*_ruby.c"]

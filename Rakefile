@@ -5,7 +5,7 @@ require 'rdoc/task'
 
 Rake::ExtensionTask.new('phidgets_native')
 
-RDOC_FILES = FileList["README.rdoc", "ext/phidgets_native/phidgets_native.c", 
+RDOC_FILES = FileList["README.rdoc", "ext/phidgets_native/phidgets_native_ruby.c", 
   "ext/phidgets_native/*_ruby.c"]
 
 Rake::RDocTask.new do |rd|

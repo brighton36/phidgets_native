@@ -104,6 +104,28 @@ typedef struct gps_info {
 } GpsInfo;
 
 void Init_phidgets_native();
+void Init_phidgets_native_module();
+void Init_phidgets_native_device(VALUE m_Phidget);
+void Init_phidgets_native_accelerometer(VALUE m_Phidget);
+void Init_phidgets_native_advancedservo(VALUE m_Phidget);
+void Init_phidgets_native_analog(VALUE m_Phidget);
+void Init_phidgets_native_bridge(VALUE m_Phidget);
+void Init_phidgets_native_encoder(VALUE m_Phidget);
+void Init_phidgets_native_frequencycounter(VALUE m_Phidget);
+void Init_phidgets_native_gps(VALUE m_Phidget);
+void Init_phidgets_native_interfacekit(VALUE m_Phidget);
+void Init_phidgets_native_ir(VALUE m_Phidget);
+void Init_phidgets_native_led(VALUE m_Phidget);
+void Init_phidgets_native_motorcontrol(VALUE m_Phidget);
+void Init_phidgets_native_phsensor(VALUE m_Phidget);
+void Init_phidgets_native_rfid(VALUE m_Phidget);
+void Init_phidgets_native_servo(VALUE m_Phidget);
+void Init_phidgets_native_spatial(VALUE m_Phidget);
+void Init_phidgets_native_stepper(VALUE m_Phidget);
+void Init_phidgets_native_temperaturesensor(VALUE m_Phidget);
+void Init_phidgets_native_textlcd(VALUE m_Phidget);
+void Init_phidgets_native_textled(VALUE m_Phidget);
+void Init_phidgets_native_weightsensor(VALUE m_Phidget);
 
 // Common:
 VALUE double_array_to_rb(double *dbl_array, int length);
@@ -178,6 +200,8 @@ VALUE interfacekit_initialize(VALUE self, VALUE serial);
 VALUE gps_initialize(VALUE self, VALUE serial);
 int CCONV gps_on_attach(CPhidgetHandle phid, void *userptr);
 int CCONV gps_on_detach(CPhidgetHandle phidget, void *userptr);
+int CCONV gps_on_position_change(CPhidgetGPSHandle gps, void *userptr, double latitude, double longitude, double altitude);
+int CCONV gps_on_fix_change(CPhidgetGPSHandle gps, void *userptr, int status);
 void gps_on_free(void *type_info);
 VALUE gps_latitude(VALUE self);
 VALUE gps_longitude(VALUE self);

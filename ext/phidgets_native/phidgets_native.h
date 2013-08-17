@@ -13,6 +13,8 @@
 static double const MICROSECONDS_IN_SECOND = 1000000.0;
 static int const DEGREES_IN_CIRCLE = 360;
 static int const DEFAULT_SPATIAL_DATA_RATE = 16;
+static int const DEFAULT_INTERFACEKIT_DATA_RATE = 8;
+static int const DEFAULT_INTERFACEKIT_CHANGE_TRIGGER = 0;
 
 typedef struct phidget_info {
   CPhidgetHandle handle;
@@ -107,6 +109,31 @@ typedef struct gps_info {
 
 } GpsInfo;
 
+typedef struct interfacekit_info {
+  bool is_digital_input_count_known;
+  int digital_input_count;
+
+  bool is_digital_output_count_known;
+  int digital_output_count;
+
+  bool is_analog_input_count_known;
+  int analog_input_count;
+
+  bool is_ratiometric_known;
+  bool is_ratiometric;
+
+  int sensor_change_trigger;
+
+  int data_rate;
+  int data_rate_max;
+  int data_rate_min;
+
+  int *digital_input_states;
+  int *digital_output_states;
+  int *analog_input_states;
+
+} InterfaceKitInfo;
+
 void Init_phidgets_native();
 void Init_phidgets_native_module();
 void Init_phidgets_native_device(VALUE m_Phidget);
@@ -200,6 +227,11 @@ VALUE spatial_data_rate_get(VALUE self);
 
 // Phidget::InterfaceKit
 VALUE interfacekit_initialize(VALUE self, VALUE serial);
+void interfacekit_on_free(void *type_info);
+int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr);
+int CCONV interfacekit_on_detach(CPhidgetHandle phid, void *userptr);
+int interfacekit_on_digital_change(CPhidgetInterfaceKitHandle interfacekit, void *userptr, int index, int inputState);
+int interfacekit_on_analog_change(CPhidgetInterfaceKitHandle interfacekit, void *userptr, int index, int sensorValue);
 
 // Phidget::Gps
 VALUE gps_initialize(VALUE self, VALUE serial);

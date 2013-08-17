@@ -220,6 +220,8 @@ VALUE device_is_attached(VALUE self) {
 VALUE device_device_class(VALUE self) {
   PhidgetInfo *info = device_info(self);
 
+  if (info->device_class == 0) return Qnil;
+
   switch (info->device_class) {
     case PHIDCLASS_ACCELEROMETER:
         return rb_str_new2("Phidget Accelerometer");
@@ -265,12 +267,12 @@ VALUE device_device_class(VALUE self) {
       return rb_str_new2("Unknown Phidget");
       break;
   }
-
-  return (info->device_class == 0) ? Qnil : Qnil;
 }
 
 VALUE device_device_id(VALUE self) {
   PhidgetInfo *info = device_info(self);
+
+  if (info->device_class == 0) return Qnil;
 
   switch (info->device_id) {
     case PHIDID_ACCELEROMETER_3AXIS:

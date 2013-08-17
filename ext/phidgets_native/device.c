@@ -53,7 +53,7 @@ void device_sample(PhidgetInfo *info, CPhidget_Timestamp *ts) {
 int CCONV device_on_attach(CPhidgetHandle phid, void *userptr)
 {
   int serialNo;
-  ensure(CPhidget_getSerialNumber(phid, &serialNo));
+  report(CPhidget_getSerialNumber(phid, &serialNo));
 
   // Populate our data structures with what we know about this device:
   PhidgetInfo *info = userptr;
@@ -62,19 +62,19 @@ int CCONV device_on_attach(CPhidgetHandle phid, void *userptr)
   gettimeofday(&info->attached_at, &info->attached_at_tz);
 
   // Phidget Attributes:
-  ensure(CPhidget_getDeviceType(phid, &info->type));
-  ensure(CPhidget_getDeviceVersion(phid, &info->version));
-  ensure(CPhidget_getDeviceClass(phid, &info->device_class));
-  ensure(CPhidget_getDeviceID(phid, &info->device_id));
-  ensure(CPhidget_getDeviceLabel(phid, &info->label));
-  ensure(CPhidget_getDeviceName(phid, &info->name));
+  report(CPhidget_getDeviceType(phid, &info->type));
+  report(CPhidget_getDeviceVersion(phid, &info->version));
+  report(CPhidget_getDeviceClass(phid, &info->device_class));
+  report(CPhidget_getDeviceID(phid, &info->device_id));
+  report(CPhidget_getDeviceLabel(phid, &info->label));
+  report(CPhidget_getDeviceName(phid, &info->name));
 
   return (info->on_type_attach) ? (*info->on_type_attach)(phid, info) : 0;
 }
 
 int CCONV device_on_detach(CPhidgetHandle phid, void *userptr) {
   int serialNo;
-  ensure(CPhidget_getSerialNumber(phid, &serialNo));
+  report(CPhidget_getSerialNumber(phid, &serialNo));
 
   PhidgetInfo *info = userptr;
   info->is_attached = false;
@@ -88,15 +88,15 @@ int CCONV device_on_detach(CPhidgetHandle phid, void *userptr) {
 }
 
 int CCONV device_on_error(CPhidgetHandle phid, void *userptr, int ErrorCode, const char *unknown) {
-  printf("Error handled. %d - %s \n", ErrorCode, unknown);
+  CPhidget_log(PHIDGET_LOG_ERROR, "N/A", "PhidgetNative OnError: %s", unknown);
   return 0;
 }
 
 void device_free(PhidgetInfo *info) {
   if (info) {
     if (info->handle) {
-	    ensure(CPhidget_close((CPhidgetHandle)info->handle));
-	    ensure(CPhidget_delete((CPhidgetHandle)info->handle));
+	    report(CPhidget_close((CPhidgetHandle)info->handle));
+	    report(CPhidget_delete((CPhidgetHandle)info->handle));
     }
 
     if (info->on_type_free)

@@ -355,7 +355,9 @@ VALUE spatial_gyro_axes(VALUE self) {
 VALUE spatial_accelerometer(VALUE self) {
   SpatialInfo *spatial_info = device_type_info(self);
 
-  return double_array_to_rb(spatial_info->acceleration, spatial_info->accelerometer_axes);
+  return (spatial_info->is_acceleration_known) ? 
+    double_array_to_rb(spatial_info->acceleration, spatial_info->accelerometer_axes) :
+    Qnil;
 }  
 
 VALUE spatial_accelerometer_min(VALUE self) {
@@ -372,6 +374,8 @@ VALUE spatial_accelerometer_max(VALUE self) {
 
 VALUE spatial_gyro(VALUE self) {
   SpatialInfo *spatial_info = device_type_info(self);
+
+  if (!spatial_info->is_gyroscope_known) return Qnil;
 
   double *gyroscope_in_degrees;
   VALUE ret; 
@@ -401,7 +405,9 @@ VALUE spatial_gyro_max(VALUE self) {
 VALUE spatial_compass(VALUE self) {
   SpatialInfo *spatial_info = device_type_info(self);
 
-  return double_array_to_rb(spatial_info->compass, spatial_info->compass_axes);
+  return (spatial_info->is_compass_known) ? 
+    double_array_to_rb(spatial_info->compass, spatial_info->compass_axes) :
+    Qnil;
 }  
 
 VALUE spatial_compass_min(VALUE self) {
@@ -432,7 +438,7 @@ VALUE spatial_reset_compass_correction(VALUE self) {
 
   ensure(CPhidgetSpatial_resetCompassCorrectionParameters((CPhidgetSpatialHandle) info->handle));
   memset(spatial_info->compass_correction, 0, sizeof(double) * COMPASS_CORRECTION_LENGTH );
-  spatial_info->has_compass_correction = false; 
+  spatial_info->is_compass_correction_known = false; 
 
   return Qnil;
 }
@@ -456,7 +462,7 @@ VALUE spatial_compass_correction_set(VALUE self, VALUE compass_correction) {
       }
     }
 
-    spatial_info->has_compass_correction = true; 
+    spatial_info->is_compass_correction_known = true; 
     if (info->is_attached)
       spatial_set_compass_correction_by_array( 
         (CPhidgetSpatialHandle)info->handle, spatial_info->compass_correction);
@@ -468,7 +474,7 @@ VALUE spatial_compass_correction_set(VALUE self, VALUE compass_correction) {
 VALUE spatial_compass_correction_get(VALUE self) {
   SpatialInfo *spatial_info = device_type_info(self);
 
-  return (spatial_info->has_compass_correction) ? 
+  return (spatial_info->is_compass_correction_known) ? 
     double_array_to_rb(spatial_info->compass_correction, COMPASS_CORRECTION_LENGTH) : Qnil;
 }
 

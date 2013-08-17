@@ -237,7 +237,6 @@ void Init_phidgets_native() {
 
   // Phidget Device Classes
   Init_phidgets_native_device(m_Phidget);
-
   Init_phidgets_native_accelerometer(m_Phidget);
   Init_phidgets_native_advancedservo(m_Phidget);
   Init_phidgets_native_analog(m_Phidget);

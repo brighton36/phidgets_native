@@ -92,3 +92,18 @@ int ensure(int result) {
 
   return result;
 }
+
+// The name is ambiguous, but the main purpose here is dry things out a bit
+// and let us do a better job of reporting errors albeit not halting.
+// This is necessary in the threaded callbacks where access to the interpreter 
+// is unavailable:
+int report(int result) {
+  if (result == EPHIDGET_OK) return result;
+
+  const char *description;
+  CPhidget_getErrorDescription(result, &description);
+
+  CPhidget_log(PHIDGET_LOG_ERROR, "N/A", "PhidgetNative report error: %s", description);
+
+  return result;
+}

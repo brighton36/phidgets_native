@@ -5,7 +5,7 @@ $:.push *['%s/../lib/', '%s/lib/'].collect{|p| p % File.dirname(__FILE__) }
 require 'console_table'
 require 'phidgets_native'
 
-#PhidgetsNative.enable_logging! :verbose
+PhidgetsNative.enable_logging! :verbose
 
 puts "Using Library version: "+PhidgetsNative::LIBRARY_VERSION
 

@@ -24,6 +24,18 @@ void Init_phidgets_native_gps(VALUE m_Phidget) {
   rb_define_method(c_Gps, "initialize", gps_initialize, 1);
 
   /*
+   * Document-method: close
+   * call-seq:
+   *   close -> nil
+   *
+   * This method will unregister the phidget event handlers, and free up all
+   * API resources associated with the phidget. This is an optional, but useful
+   * way to remove the object's overhead before the GC kicks in and actually 
+   * frees the resource.
+   */
+  rb_define_method(c_Gps, "close", gps_close, 0);
+
+  /*
    * Document-method: latitude
    * call-seq:
    *   latitude -> Float
@@ -107,6 +119,15 @@ VALUE gps_initialize(VALUE self, VALUE serial) {
   info->type_info = gps_info;
 
   return rb_call_super(1, &serial);
+}
+
+VALUE gps_close(VALUE self) {
+  PhidgetInfo *info = device_info(self);
+
+  ensure(CPhidgetGPS_set_OnPositionChange_Handler((CPhidgetGPSHandle)info->handle, NULL, NULL));
+ 	ensure(CPhidgetGPS_set_OnPositionFixStatusChange_Handler((CPhidgetGPSHandle)info->handle, NULL, NULL));
+
+  return rb_call_super(0,NULL);
 }
 
 VALUE gps_latitude(VALUE self) {

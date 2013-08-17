@@ -50,8 +50,8 @@ typedef struct phidget_info {
 
 typedef struct spatial_info {
   // Compass Correction Params:
-  bool has_compass_correction;
-  double compass_correction[COMPASS_CORRECTION_LENGTH]; // aka: COMPASS_CORRECTION_LENGTH
+  bool is_compass_correction_known;
+  double compass_correction[COMPASS_CORRECTION_LENGTH];
 
   // Poll interval
   int data_rate;
@@ -62,7 +62,6 @@ typedef struct spatial_info {
   int gyro_axes;
   int data_rate_max;
   int data_rate_min;
-
   double *acceleration_min;
   double *acceleration_max;
   double *compass_min;
@@ -71,8 +70,13 @@ typedef struct spatial_info {
   double *gyroscope_max;
 
   // Runtime Values
+  bool is_acceleration_known;
   double *acceleration;
+
+  bool is_compass_known;
   double *compass;
+
+  bool is_gyroscope_known;
   double *gyroscope;
 
   // This is used by the gyro:
@@ -130,6 +134,7 @@ void Init_phidgets_native_weightsensor(VALUE m_Phidget);
 // Common:
 VALUE double_array_to_rb(double *dbl_array, int length);
 int ensure(int result);
+int report(int result);
 
 // Phidget Module
 VALUE phidget_enable_logging(int argc, VALUE *argv, VALUE class);
@@ -198,6 +203,7 @@ VALUE interfacekit_initialize(VALUE self, VALUE serial);
 
 // Phidget::Gps
 VALUE gps_initialize(VALUE self, VALUE serial);
+VALUE gps_close(VALUE self);
 int CCONV gps_on_attach(CPhidgetHandle phid, void *userptr);
 int CCONV gps_on_detach(CPhidgetHandle phidget, void *userptr);
 int CCONV gps_on_position_change(CPhidgetGPSHandle gps, void *userptr, double latitude, double longitude, double altitude);

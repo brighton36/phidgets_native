@@ -4,8 +4,8 @@
 require '%s/lib/common' % File.dirname(__FILE__)
 
 additional_attribs = [
-  %(Compass\ Correction compass_correction),
-  %(Data\ Rate data_rate),
+  %w(Compass\ Correction compass_correction),
+  %w(Data\ Rate data_rate),
   %w(Data\ Rate\ Max data_rate_max),
   %w(Data\ Rate\ Min data_rate_min),
   %w(Accelerometer\ Axes accelerometer_axes),
@@ -19,7 +19,7 @@ additional_attribs = [
   %w(Compass\ Max compass_max)
 ]
 
-phidgets_example_for( PhidgetsNative::Spatial.new(302012), additional_attribs ) do |spatial|
+phidgets_example_for( PhidgetsNative::Spatial, additional_attribs ) do |spatial|
   # This is worth doing before you start to use a gyro: 
   spatial.zero_gyro!
  
@@ -45,7 +45,7 @@ phidgets_example_for( PhidgetsNative::Spatial.new(302012), additional_attribs ) 
     i+=1
     [ [ spatial.accelerometer, spatial.gyro, spatial.compass ].collect{ |axes|
       (axes.kind_of? Array) ? 
-        '[%s]' % axes.collect{|a| '%0.6f' % a}.join(',') : axes.inspect
+        '[%s]' % axes.collect{|a| '%0.6f' % a}.join(', ') : axes.inspect
     } ]
   end while sleep(3)
 end

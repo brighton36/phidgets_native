@@ -24,7 +24,7 @@ class ConsoleTable
         fmt % widths.collect{|width| "-" * (width+4) }.join('|') 
       }
 
-      row_fmt = '|- %s -|' % widths.collect{|width| "%-#{width}s"}.join(' -|- ')
+      row_fmt = '|  %s  |' % widths.collect{|width| "%-#{width}s"}.join('  |  ')
 
       puts [
         (options[:header] == false) ? nil : [ end_cap, row_fmt % @columns, separator],

@@ -3,7 +3,7 @@
 
 require '%s/lib/common' % File.dirname(__FILE__)
 
-phidgets_example_for(PhidgetsNative::GPS.new(284771)) do
+phidgets_example_for(PhidgetsNative::GPS) do |gps|
   puts "\nPolled Values:"
 
   i = 0

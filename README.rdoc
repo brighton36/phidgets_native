@@ -25,12 +25,13 @@ will not.
 As of this version, we currently only support the following phidgets:
 * Phidget Spatial
 * Phidget GPS
-There will soon be support for the "Phidget Interface Kit" and "Phidget Servo" 
-phidgets. If you have a phidget that's not on our current compatibility list, 
-Either get me a copy of the phidget to work with at my desk, or check out the 
-existing modules for a reference in setting up your own class, and push your 
-changes to my repo. Most of the difficult work is done, and you'll find plenty
-of stubs to work with for nearly all the available phidgets.
+* Phidget Interface Kit
+There will soon be support for the "Phidget Servo" phidget. If you have a phidget 
+that's not on our current compatibility list, either get me a copy of the phidget 
+to work with at my desk, or check out the existing modules for a reference in 
+setting up your own class, and push your changes to my repo. Most of the difficult 
+work is done, and you'll find plenty of stubs to work with for nearly all the 
+available phidgets.
 
 =Why not Phidgets-FFI?
 Though encompassing, Phidgets-FFI is seemingly quite buggy, and a bit slow. Particularly

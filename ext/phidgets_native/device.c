@@ -102,7 +102,8 @@ void device_free(PhidgetInfo *info) {
     if (info->on_type_free)
       (*info->on_type_free)(info->type_info);
 
-    xfree(info);
+    if (info)
+      xfree(info);
   }
 }
 

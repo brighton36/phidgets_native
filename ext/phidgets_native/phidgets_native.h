@@ -13,8 +13,14 @@
 static double const MICROSECONDS_IN_SECOND = 1000000.0;
 static int const DEGREES_IN_CIRCLE = 360;
 static int const DEFAULT_SPATIAL_DATA_RATE = 16;
+
+// Make sure one of these is non-zero and the other is 0
 static int const DEFAULT_INTERFACEKIT_DATA_RATE = 8;
 static int const DEFAULT_INTERFACEKIT_CHANGE_TRIGGER = 0;
+// /Make-sure
+
+// 50 milliseconds:
+static int const INTERFACEKIT_RATIOMETRIC_RESET_USECS = 50000;
 
 typedef struct phidget_info {
   CPhidgetHandle handle;
@@ -119,14 +125,22 @@ typedef struct interfacekit_info {
   bool is_analog_input_count_known;
   int analog_input_count;
 
-  bool is_ratiometric_known;
+  // This is kind of a weird thing to track, probably it will never be needed.
+  // I use it to determine whether the input counts have changed between device
+  // plug events.
+  int analog_input_count_prior;
+
   bool is_ratiometric;
+  int rationmetric_changed_usec;
 
-  int sensor_change_trigger;
 
-  int data_rate;
-  int data_rate_max;
-  int data_rate_min;
+  // This flag works for all of the below properties
+  bool is_data_rates_known;
+  int *data_rates_max;
+  int *data_rates_min;
+  int *sensor_change_triggers;
+  int *data_rates;
+  // /is_data_rates_known
 
   int *digital_input_states;
   int *digital_output_states;
@@ -160,6 +174,8 @@ void Init_phidgets_native_weightsensor(VALUE m_Phidget);
 
 // Common:
 VALUE double_array_to_rb(double *dbl_array, int length);
+VALUE int_array_to_rb(int *int_array, int length);
+VALUE int_array_zeronils_to_rb(int *int_array, int length);
 int ensure(int result);
 int report(int result);
 
@@ -226,12 +242,23 @@ VALUE spatial_data_rate_set(VALUE self, VALUE data_rate);
 VALUE spatial_data_rate_get(VALUE self);
 
 // Phidget::InterfaceKit
-VALUE interfacekit_initialize(VALUE self, VALUE serial);
 void interfacekit_on_free(void *type_info);
 int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr);
 int CCONV interfacekit_on_detach(CPhidgetHandle phid, void *userptr);
 int interfacekit_on_digital_change(CPhidgetInterfaceKitHandle interfacekit, void *userptr, int index, int inputState);
 int interfacekit_on_analog_change(CPhidgetInterfaceKitHandle interfacekit, void *userptr, int index, int sensorValue);
+int interfacekit_assert_ratiometric_state(PhidgetInfo *info);
+VALUE interfacekit_initialize(VALUE self, VALUE serial);
+VALUE interfacekit_close(VALUE self);
+VALUE interfacekit_input_count(VALUE self);
+VALUE interfacekit_output_count(VALUE self);
+VALUE interfacekit_sensor_count(VALUE self);
+VALUE interfacekit_is_ratiometric(VALUE self);
+VALUE interfacekit_ratiometric_set(VALUE self, VALUE is_ratiometric);
+VALUE interfacekit_data_rates_max(VALUE self);
+VALUE interfacekit_data_rates_min(VALUE self);
+VALUE interfacekit_data_rates(VALUE self);
+VALUE interfacekit_change_triggers(VALUE self);
 
 // Phidget::Gps
 VALUE gps_initialize(VALUE self, VALUE serial);

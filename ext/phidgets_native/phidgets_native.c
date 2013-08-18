@@ -1,16 +1,37 @@
 #include "phidgets_native.h"
 
-// This converts an array of doubles into a ruby array of numbers, or into
-// nil for the case of an invalid dbl_array
+/* This converts an array of doubles into a ruby array of numbers, or into
+ * nil for the case of an invalid dbl_array
+ */
 VALUE double_array_to_rb(double *dbl_array, int length) {
   if (!dbl_array) return Qnil;
-
   VALUE rb_ary = rb_ary_new2(length);
-
   for(int i=0; i<length; i++) rb_ary_store(rb_ary, i, DBL2NUM(dbl_array[i]));
-
   return rb_ary;
 }
+
+/* This converts an array of ints into a ruby array of fixnums, or into
+ * nil for the case of an invalid int_array
+ */
+VALUE int_array_to_rb(int *int_array, int length) {
+  if (!int_array) return Qnil;
+  VALUE rb_ary = rb_ary_new2(length);
+  for(int i=0; i<length; i++) rb_ary_store(rb_ary, i, INT2NUM(int_array[i]));
+  return rb_ary;
+}
+
+/* This converts an array of ints into a ruby array of fixnums. If an element
+ * of the array is 0, this converts to Qnil. nil is returned for the case of an 
+ * invalid int_array.
+ */
+VALUE int_array_zeronils_to_rb(int *int_array, int length) {
+  if (!int_array) return Qnil;
+  VALUE rb_ary = rb_ary_new2(length);
+  for(int i=0; i<length; i++) 
+    rb_ary_store(rb_ary, i, (int_array[i] == 0) ? Qnil : INT2NUM(int_array[i]));
+  return rb_ary;
+}
+
 
 // The name is ambiguous, but the main purpose here is dry things out a bit
 // and let us do a better job of reporting errors to ruby

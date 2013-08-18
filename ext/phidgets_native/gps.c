@@ -85,7 +85,9 @@ int CCONV gps_on_detach(CPhidgetHandle phidget, void *userptr) {
 void gps_on_free(void *type_info) {
   GpsInfo *gps_info = type_info;
 
-  xfree(gps_info);
+  if (gps_info)
+    xfree(gps_info);
+
   return;
 }
 

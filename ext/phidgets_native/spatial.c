@@ -2,16 +2,26 @@
 
 void spatial_on_free(void *type_info) {
   SpatialInfo *spatial_info = type_info;
-  xfree(spatial_info->acceleration);
-  xfree(spatial_info->acceleration_min);
-  xfree(spatial_info->acceleration_max);
-  xfree(spatial_info->gyroscope);
-  xfree(spatial_info->gyroscope_min);
-  xfree(spatial_info->gyroscope_max);
-  xfree(spatial_info->compass);
-  xfree(spatial_info->compass_min);
-  xfree(spatial_info->compass_max);
-  xfree(spatial_info);
+  if (spatial_info->acceleration)
+    xfree(spatial_info->acceleration);
+  if (spatial_info->acceleration_min)
+    xfree(spatial_info->acceleration_min);
+  if (spatial_info->acceleration_max)
+    xfree(spatial_info->acceleration_max);
+  if (spatial_info->gyroscope)
+    xfree(spatial_info->gyroscope);
+  if (spatial_info->gyroscope_min)
+    xfree(spatial_info->gyroscope_min);
+  if (spatial_info->gyroscope_max)
+    xfree(spatial_info->gyroscope_max);
+  if (spatial_info->compass)
+    xfree(spatial_info->compass);
+  if (spatial_info->compass_min)
+    xfree(spatial_info->compass_min);
+  if (spatial_info->compass_max)
+    xfree(spatial_info->compass_max);
+  if (spatial_info)
+    xfree(spatial_info);
 
   return;
 }

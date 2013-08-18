@@ -32,6 +32,17 @@ VALUE int_array_zeronils_to_rb(int *int_array, int length) {
   return rb_ary;
 }
 
+/* This converts an array of phidget bools into a ruby array of booleans. If an 
+ * element of the array is 0, this converts to Qnil. nil is returned for the case 
+ * of an invalid bool_array.
+ */
+VALUE phidgetbool_array_to_rb(int *bool_array, int length) {
+  if (!bool_array) return Qnil;
+  VALUE rb_ary = rb_ary_new2(length);
+  for(int i=0; i<length; i++) 
+    rb_ary_store(rb_ary, i, (bool_array[i] == PTRUE) ? Qtrue : Qfalse);
+  return rb_ary;
+}
 
 // The name is ambiguous, but the main purpose here is dry things out a bit
 // and let us do a better job of reporting errors to ruby

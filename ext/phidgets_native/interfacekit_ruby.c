@@ -136,11 +136,37 @@ void Init_phidgets_native_interfacekit(VALUE m_Phidget) {
   rb_define_method(c_InterfaceKit, "change_triggers", interfacekit_change_triggers, 0);
 
   /*
-   TODO:
+   * Document-method: inputs
+   * call-seq:
+   *   inputs -> Array
+   *
+   * Returns an array of bools, which specify the current digital input states. 
+   * A return of nil indicates that this device is unplugged
+   */
   rb_define_method(c_InterfaceKit, "inputs", interfacekit_inputs, 0);
+
+  /*
+   * Document-method: outputs
+   * call-seq:
+   *   outputs -> Array
+   *
+   * Returns an array of bools, which specify the current digital output states.
+   * A return of nil indicates that this device is unplugged
+   */
   rb_define_method(c_InterfaceKit, "outputs", interfacekit_outputs, 0);
+
+  /*
+   * Document-method: sensors
+   * call-seq:
+   *   sensors -> Array
+   *
+   * Returns an array of ints, which specify the current analog sensor states. A 
+   * return of nil indicates that this device is unplugged
+   */
   rb_define_method(c_InterfaceKit, "sensors", interfacekit_sensors, 0);
 
+  /*
+   TODO:
   rb_define_method(c_InterfaceKit, "output_set", interfacekit_output_set, 2);
   rb_define_method(c_InterfaceKit, "data_rate_set", interfacekit_data_rate_set, 2);
   rb_define_method(c_InterfaceKit, "change_trigger_set", interfacekit_change_trigger_set, 2);
@@ -249,4 +275,25 @@ VALUE interfacekit_change_triggers(VALUE self) {
 
   return (interfacekit_info->is_data_rates_known) ? 
     int_array_zeronils_to_rb(interfacekit_info->sensor_change_triggers, interfacekit_info->analog_input_count) : Qnil;
+}
+
+VALUE interfacekit_inputs(VALUE self) {
+  InterfaceKitInfo *interfacekit_info = device_type_info(self);
+
+  return phidgetbool_array_to_rb(interfacekit_info->digital_input_states, 
+    interfacekit_info->digital_input_count);
+}
+
+VALUE interfacekit_outputs(VALUE self) {
+  InterfaceKitInfo *interfacekit_info = device_type_info(self);
+
+  return phidgetbool_array_to_rb(interfacekit_info->digital_output_states,
+    interfacekit_info->digital_output_count);
+}
+
+VALUE interfacekit_sensors(VALUE self) {
+  InterfaceKitInfo *interfacekit_info = device_type_info(self);
+
+  return int_array_to_rb(interfacekit_info->analog_input_states, 
+    interfacekit_info->analog_input_count);
 }

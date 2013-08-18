@@ -176,6 +176,7 @@ void Init_phidgets_native_weightsensor(VALUE m_Phidget);
 VALUE double_array_to_rb(double *dbl_array, int length);
 VALUE int_array_to_rb(int *int_array, int length);
 VALUE int_array_zeronils_to_rb(int *int_array, int length);
+VALUE phidgetbool_array_to_rb(int *bool_array, int length);
 int ensure(int result);
 int report(int result);
 
@@ -259,6 +260,9 @@ VALUE interfacekit_data_rates_max(VALUE self);
 VALUE interfacekit_data_rates_min(VALUE self);
 VALUE interfacekit_data_rates(VALUE self);
 VALUE interfacekit_change_triggers(VALUE self);
+VALUE interfacekit_inputs(VALUE self);
+VALUE interfacekit_outputs(VALUE self);
+VALUE interfacekit_sensors(VALUE self);
 
 // Phidget::Gps
 VALUE gps_initialize(VALUE self, VALUE serial);

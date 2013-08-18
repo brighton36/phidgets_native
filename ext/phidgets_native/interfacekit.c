@@ -172,6 +172,9 @@ int interfacekit_assert_ratiometric_state(PhidgetInfo *info) {
     ret = CPhidgetInterfaceKit_setRatiometric(interfacekit, (interfacekit_info->is_ratiometric) ? PTRUE : PFALSE );
     if (ret != EPHIDGET_OK) return ret;
 
+    // Zero-out the analog struct:
+    memset(interfacekit_info->analog_input_states, 0, sizeof(int) * interfacekit_info->analog_input_count);
+
     // We need to wait 50ms after this change before we start to read in values:
     struct timeval now;
     gettimeofday(&now, NULL);

@@ -3,6 +3,8 @@
 
 require '%s/lib/common' % File.dirname(__FILE__)
 
+#PhidgetsNative.enable_logging! :verbose
+
 additional_attribs = [
   %w(Digital\ Inputs input_count),
   %w(Digital\ Outputs output_count),
@@ -12,6 +14,7 @@ additional_attribs = [
   %w(Data\ Rates\ Min data_rates_min),
   %w(Data\ Rates\ Max data_rates_max)
 ]
+
 phidgets_example_for(PhidgetsNative::InterfaceKit, additional_attribs) do |ifkit|
   puts "TODO: Test all the setters" 
   puts "\nPolled Values:"

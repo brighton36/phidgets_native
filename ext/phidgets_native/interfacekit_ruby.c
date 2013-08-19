@@ -274,7 +274,7 @@ VALUE interfacekit_change_triggers(VALUE self) {
   InterfaceKitInfo *interfacekit_info = device_type_info(self);
 
   return (interfacekit_info->is_data_rates_known) ? 
-    int_array_zeronils_to_rb(interfacekit_info->sensor_change_triggers, interfacekit_info->analog_input_count) : Qnil;
+    int_array_to_rb(interfacekit_info->sensor_change_triggers, interfacekit_info->analog_input_count) : Qnil;
 }
 
 VALUE interfacekit_inputs(VALUE self) {

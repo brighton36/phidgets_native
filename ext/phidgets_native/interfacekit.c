@@ -48,11 +48,10 @@ int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr) {
   report(interfacekit_assert_ratiometric_state( info ));
 
   // Set the data-rate/sensor-thresholds
-  for(int i=0;i<interfacekit_info->analog_input_count;i++)
-    if (interfacekit_info->data_rates[i] > 0)
-      report(CPhidgetInterfaceKit_setDataRate(interfacekit, i, interfacekit_info->data_rates[i]));
-    else if (interfacekit_info->sensor_change_triggers[i] > 0)
-      report(CPhidgetInterfaceKit_setSensorChangeTrigger(interfacekit, i, interfacekit_info->sensor_change_triggers[i]));
+  for(int i=0;i<interfacekit_info->analog_input_count;i++) {
+    report(CPhidgetInterfaceKit_setSensorChangeTrigger(interfacekit, i, interfacekit_info->sensor_change_triggers[i]));
+    report(CPhidgetInterfaceKit_setDataRate(interfacekit, i, interfacekit_info->data_rates[i]));
+  }
 
   // Read in all of our initial input values:
   for(int i=0; i<interfacekit_info->digital_input_count; i++)

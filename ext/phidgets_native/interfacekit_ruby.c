@@ -38,15 +38,24 @@ void Init_phidgets_native_interfacekit(VALUE m_Phidget) {
   rb_define_method(c_InterfaceKit, "close", interfacekit_close, 0);
 
   /*
-   * Document-method: sample_rate
+   * Document-method: input_sample_rates
    * call-seq:
-   *   sample_rate -> FixNum
+   *   input_sample_rates -> Array
    *
-   * For most Phidgets, an event handler processes the device state changes at
-   * some regular interval. For these devices, this method will return the rate
-   * of state changes measured in Hz.
+   * The interface kit object tracks the sample rate of each input individually. 
+   * This method returns an array containing the sample rates of each digital sensor.
    */
-  rb_define_method(c_InterfaceKit, "sample_rate", interfacekit_sample_rate, 0);
+  rb_define_method(c_InterfaceKit, "input_sample_rates", interfacekit_input_sample_rates, 0);
+
+  /*
+   * Document-method: sensor_sample_rates
+   * call-seq:
+   *   sensor_sample_rates -> Array
+   *
+   * The interface kit object tracks the sample rate of each sensor individually. 
+   * This method returns an array containing the sample rates of each analog sensor.
+   */
+  rb_define_method(c_InterfaceKit, "sensor_sample_rates", interfacekit_sensor_sample_rates, 0);
 
   /*
    * Document-method: input_count
@@ -191,7 +200,6 @@ VALUE interfacekit_initialize(VALUE self, VALUE serial) {
   memset(interfacekit_info, 0, sizeof(InterfaceKitInfo));
   interfacekit_info->is_ratiometric = false;
   interfacekit_info->is_data_rates_known = false;
-  interfacekit_info->sample_rate = sample_create();
 
   CPhidgetInterfaceKitHandle interfacekit = 0;
   ensure(CPhidgetInterfaceKit_create(&interfacekit));
@@ -217,10 +225,32 @@ VALUE interfacekit_close(VALUE self) {
   return rb_call_super(0,NULL);
 }
 
-VALUE interfacekit_sample_rate(VALUE self) {
+VALUE interfacekit_sensor_sample_rates(VALUE self) {
   InterfaceKitInfo *interfacekit_info = device_type_info(self);
 
-  return INT2FIX(interfacekit_info->sample_rate->in_hz);
+  int *rates_in_hz = ALLOC_N(int, interfacekit_info->analog_input_count);
+  for(int i=0; i<interfacekit_info->analog_input_count; i++)
+    rates_in_hz[i] = interfacekit_info->analog_sample_rates[i].in_hz;
+
+  VALUE ret = int_array_to_rb(rates_in_hz, interfacekit_info->analog_input_count);
+
+  xfree(rates_in_hz);
+
+  return ret;
+}
+
+VALUE interfacekit_input_sample_rates(VALUE self) {
+  InterfaceKitInfo *interfacekit_info = device_type_info(self);
+
+  int *rates_in_hz = ALLOC_N(int, interfacekit_info->analog_input_count);
+  for(int i=0; i<interfacekit_info->digital_input_count; i++)
+    rates_in_hz[i] = interfacekit_info->digital_sample_rates[i].in_hz;
+
+  VALUE ret = int_array_to_rb(rates_in_hz, interfacekit_info->digital_input_count);
+
+  xfree(rates_in_hz);
+
+  return ret;
 }
 
 VALUE interfacekit_input_count(VALUE self) {

@@ -123,7 +123,6 @@ typedef struct gps_info {
 
 typedef struct interfacekit_info {
   // For the inputs:
-  SampleRate *sample_rate; // TODO: Delete
   SampleRate *analog_sample_rates;
   SampleRate *digital_sample_rates;
 
@@ -221,7 +220,6 @@ VALUE device_name(VALUE self);
 VALUE device_label(VALUE self);
 VALUE device_serial_number(VALUE self);
 VALUE device_version(VALUE self);
-VALUE device_sample_rate(VALUE self);
 
 // Phidget::Spatial
 void spatial_on_free(void *type_info);
@@ -266,7 +264,8 @@ int interfacekit_on_analog_change(CPhidgetInterfaceKitHandle interfacekit, void 
 int interfacekit_assert_ratiometric_state(PhidgetInfo *info);
 VALUE interfacekit_initialize(VALUE self, VALUE serial);
 VALUE interfacekit_close(VALUE self);
-VALUE interfacekit_sample_rate(VALUE self);
+VALUE interfacekit_sensor_sample_rates(VALUE self);
+VALUE interfacekit_input_sample_rates(VALUE self);
 VALUE interfacekit_input_count(VALUE self);
 VALUE interfacekit_output_count(VALUE self);
 VALUE interfacekit_sensor_count(VALUE self);

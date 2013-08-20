@@ -21,7 +21,8 @@ phidgets_example_for(PhidgetsNative::InterfaceKit, additional_attribs) do |ifkit
 
   i = 0
   ConsoleTable.new([
-    'Sample Rate',
+    'Input Sample Rates',
+    'Sensor Sample Rates',
     'Ratiometric?',
     '%-40s' % 'sensors', 
     '%-20s' % 'inputs',
@@ -31,7 +32,7 @@ phidgets_example_for(PhidgetsNative::InterfaceKit, additional_attribs) do |ifkit
 
     #TODO Test the ratiometric set at some point
 
-    [ ['%d Hz' % ifkit.sample_rate, ifkit.ratiometric?.inspect, 
+    [ [ifkit.input_sample_rates, ifkit.sensor_sample_rates, ifkit.ratiometric?.inspect, 
       ifkit.sensors.inspect]+[ifkit.inputs, ifkit.outputs].collect{ |bools|
         (bools.kind_of? Array) ? 
           '[%s]' % bools.collect{|b| (b) ? '1' : '0'  }.join(', ') : bools.inspect}

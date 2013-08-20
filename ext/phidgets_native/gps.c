@@ -5,7 +5,7 @@ int CCONV gps_on_position_change(CPhidgetGPSHandle gps, void *userptr, double la
   GpsInfo *gps_info = info->type_info;
 
   // Calculate the sample time:
-  device_sample(info, NULL);
+  sample_tick(gps_info->sample_rate, NULL);
 
   // Get the GPS time:
 	GPSDate date;
@@ -64,7 +64,7 @@ int CCONV gps_on_fix_change(CPhidgetGPSHandle gps, void *userptr, int status) {
   GpsInfo *gps_info = info->type_info;
 
   // Calculate the sample time:
-  device_sample(info, NULL);
+  sample_tick(gps_info->sample_rate, NULL);
 
   // I'm fairly certain that status is always either 1 or 0
   gps_info->is_fixed = (status) ? true : false;
@@ -76,15 +76,24 @@ int CCONV gps_on_detach(CPhidgetHandle phidget, void *userptr) {
   PhidgetInfo *info = userptr;
   GpsInfo *gps_info = info->type_info;
 
-  // Zero out the polled values, which happens to be everything so far:
-  memset(gps_info, 0, sizeof(GpsInfo));
+  gps_info->is_fixed = false;
+  gps_info->is_latitude_known = false;
+  gps_info->is_longitude_known = false;
+  gps_info->is_altitude_known = false;
+  gps_info->is_heading_known = false;
+  gps_info->is_velocity_known = false;
+  gps_info->is_now_at_utc_known = false;
   
+  sample_zero(gps_info->sample_rate);
+
   return 0;
 }
 
 void gps_on_free(void *type_info) {
   GpsInfo *gps_info = type_info;
 
+  if (gps_info->sample_rate)
+    sample_free(gps_info->sample_rate);
   if (gps_info)
     xfree(gps_info);
 

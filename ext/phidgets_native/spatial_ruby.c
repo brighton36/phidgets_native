@@ -40,6 +40,17 @@ void Init_phidgets_native_spatial(VALUE m_Phidget) {
   rb_define_method(c_Spatial, "close", spatial_close, 0);
 
   /*
+   * Document-method: sample_rate
+   * call-seq:
+   *   sample_rate -> FixNum
+   *
+   * For most Phidgets, an event handler processes the device state changes at
+   * some regular interval. For these devices, this method will return the rate
+   * of state changes measured in Hz.
+   */
+  rb_define_method(c_Spatial, "sample_rate", spatial_sample_rate, 0);
+
+  /*
    * Document-method: accelerometer_axes
    * call-seq:
    *   accelerometer_axes -> Fixnum
@@ -310,6 +321,7 @@ VALUE spatial_initialize(VALUE self, VALUE serial) {
   memset(spatial_info, 0, sizeof(SpatialInfo));
 
   spatial_info->data_rate = DEFAULT_SPATIAL_DATA_RATE;
+  spatial_info->sample_rate = sample_create();
 
   // Setup a spatial handle
   CPhidgetSpatialHandle spatial = 0;
@@ -332,6 +344,12 @@ VALUE spatial_close(VALUE self) {
 
   return rb_call_super(0,NULL);
 }
+
+VALUE spatial_sample_rate(VALUE self) {
+  SpatialInfo *spatial_info = device_type_info(self);
+
+  return INT2FIX(spatial_info->sample_rate->in_hz);
+}  
 
 VALUE spatial_accelerometer_axes(VALUE self) {
   SpatialInfo *spatial_info = device_type_info(self);

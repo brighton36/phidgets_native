@@ -20,6 +20,8 @@ void spatial_on_free(void *type_info) {
     xfree(spatial_info->compass_min);
   if (spatial_info->compass_max)
     xfree(spatial_info->compass_max);
+  if (spatial_info->sample_rate)
+    sample_free(spatial_info->sample_rate);
   if (spatial_info)
     xfree(spatial_info);
 
@@ -108,6 +110,8 @@ int CCONV spatial_on_detach(CPhidgetHandle phidget, void *userptr) {
   spatial_info->is_gyroscope_known = false;
   spatial_info->is_compass_known = false;
 
+  sample_zero(spatial_info->sample_rate);
+
   return 0;
 }
 
@@ -121,7 +125,7 @@ int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidget
 
   int i;
   for(i = 0; i < count; i++) {
-    device_sample(info, &data[i]->timestamp);
+    sample_tick(spatial_info->sample_rate, &data[i]->timestamp);
 
     // Set the values to where they need to be:
     for(int j=0; j < spatial_info->accelerometer_axes; j++)

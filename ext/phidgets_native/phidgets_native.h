@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <ruby.h>
 #include <phidget21.h>
@@ -22,6 +23,14 @@ static int const DEFAULT_INTERFACEKIT_CHANGE_TRIGGER = 0;
 // 50 milliseconds:
 static int const INTERFACEKIT_RATIOMETRIC_RESET_USECS = 50000;
 
+typedef struct sample_rate {
+  int in_hz;             // This is really the finished product
+  int samples_in_second; // A counter which resets when the second changes
+
+  // This is used for calculating the deltas 
+  unsigned long last_second;
+} SampleRate;
+
 typedef struct phidget_info {
   CPhidgetHandle handle;
   int  serial;
@@ -39,13 +48,6 @@ typedef struct phidget_info {
   struct timeval attached_at;
   struct timezone attached_at_tz;
 
-  // Sample tracking.
-  int sample_rate;       // NOTE: These are in Hz
-  int samples_in_second;    // A counter which resets when the second changes
-
-  // This is used for calculating deltas for both sample tracking, and gyro adjustment
-  unsigned long last_second;
-
   // Used by the device drivers to track state:
   void *type_info;
 
@@ -60,6 +62,8 @@ typedef struct spatial_info {
   // Compass Correction Params:
   bool is_compass_correction_known;
   double compass_correction[COMPASS_CORRECTION_LENGTH];
+
+  SampleRate *sample_rate;
 
   // Poll interval
   int data_rate;
@@ -92,6 +96,8 @@ typedef struct spatial_info {
 } SpatialInfo;
 
 typedef struct gps_info {
+  SampleRate *sample_rate;
+
   bool is_fixed;
 
   bool is_latitude_known;
@@ -116,6 +122,11 @@ typedef struct gps_info {
 } GpsInfo;
 
 typedef struct interfacekit_info {
+  // For the inputs:
+  SampleRate *sample_rate; // TODO: Delete
+  SampleRate *analog_sample_rates;
+  SampleRate *digital_sample_rates;
+
   bool is_digital_input_count_known;
   int digital_input_count;
 
@@ -179,6 +190,10 @@ VALUE int_array_zeronils_to_rb(int *int_array, int length);
 VALUE phidgetbool_array_to_rb(int *bool_array, int length);
 int ensure(int result);
 int report(int result);
+SampleRate *sample_create();
+int sample_free(SampleRate *sample_rate);
+int sample_zero(SampleRate *sample_rate);
+int sample_tick(SampleRate *sample_rate, CPhidget_Timestamp *ts);
 
 // Phidget Module
 VALUE phidget_enable_logging(int argc, VALUE *argv, VALUE class);
@@ -190,7 +205,6 @@ VALUE phidget_all(VALUE class);
 PhidgetInfo *device_info(VALUE self);
 void *device_type_info(VALUE self);
 void device_free(PhidgetInfo *info);
-void device_sample(PhidgetInfo *info, CPhidget_Timestamp *ts);
 int CCONV device_on_attach(CPhidgetHandle phid, void *userptr);
 int CCONV device_on_detach(CPhidgetHandle phid, void *userptr);
 int CCONV device_on_error(CPhidgetHandle phid, void *userptr, int ErrorCode, const char *unknown);
@@ -217,6 +231,7 @@ int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidget
 int spatial_set_compass_correction_by_array(CPhidgetSpatialHandle phid, double *correction);
 VALUE spatial_initialize(VALUE self, VALUE serial);
 VALUE spatial_close(VALUE self);
+VALUE spatial_sample_rate(VALUE self);
 VALUE spatial_accelerometer_axes(VALUE self);
 VALUE spatial_compass_axes(VALUE self);
 VALUE spatial_gyro_axes(VALUE self);
@@ -251,6 +266,7 @@ int interfacekit_on_analog_change(CPhidgetInterfaceKitHandle interfacekit, void 
 int interfacekit_assert_ratiometric_state(PhidgetInfo *info);
 VALUE interfacekit_initialize(VALUE self, VALUE serial);
 VALUE interfacekit_close(VALUE self);
+VALUE interfacekit_sample_rate(VALUE self);
 VALUE interfacekit_input_count(VALUE self);
 VALUE interfacekit_output_count(VALUE self);
 VALUE interfacekit_sensor_count(VALUE self);
@@ -265,13 +281,14 @@ VALUE interfacekit_outputs(VALUE self);
 VALUE interfacekit_sensors(VALUE self);
 
 // Phidget::Gps
-VALUE gps_initialize(VALUE self, VALUE serial);
-VALUE gps_close(VALUE self);
+void gps_on_free(void *type_info);
 int CCONV gps_on_attach(CPhidgetHandle phid, void *userptr);
 int CCONV gps_on_detach(CPhidgetHandle phidget, void *userptr);
 int CCONV gps_on_position_change(CPhidgetGPSHandle gps, void *userptr, double latitude, double longitude, double altitude);
 int CCONV gps_on_fix_change(CPhidgetGPSHandle gps, void *userptr, int status);
-void gps_on_free(void *type_info);
+VALUE gps_initialize(VALUE self, VALUE serial);
+VALUE gps_close(VALUE self);
+VALUE gps_sample_rate(VALUE self);
 VALUE gps_latitude(VALUE self);
 VALUE gps_longitude(VALUE self);
 VALUE gps_altitude(VALUE self);

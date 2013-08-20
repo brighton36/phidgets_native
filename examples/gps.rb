@@ -18,8 +18,8 @@ phidgets_example_for(PhidgetsNative::GPS) do |gps|
     '%-23s' % 'Time (UTC)'
   ] ).output(:header => (i == 0), :separator => false) do |columns|
     i+=1
-    [ [ gps.sample_rate, gps.is_fixed?, gps.latitude, gps.longitude, gps.altitude,
-      gps.heading, gps.velocity].collect(&:inspect)+[
+    [ [ '%s Hz' % gps.sample_rate ] + [gps.is_fixed?, gps.latitude, 
+      gps.longitude, gps.altitude, gps.heading, gps.velocity].collect(&:inspect)+[
       (gps.now_at_utc) ? gps.now_at_utc.strftime("%Y-%m-%d %H:%M:%S.%3N") : nil.inspect ] ]
   end while sleep(3)
 end

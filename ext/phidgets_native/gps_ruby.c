@@ -36,6 +36,17 @@ void Init_phidgets_native_gps(VALUE m_Phidget) {
   rb_define_method(c_Gps, "close", gps_close, 0);
 
   /*
+   * Document-method: sample_rate
+   * call-seq:
+   *   sample_rate -> FixNum
+   *
+   * For most Phidgets, an event handler processes the device state changes at
+   * some regular interval. For these devices, this method will return the rate
+   * of state changes measured in Hz.
+   */
+  rb_define_method(c_Gps, "sample_rate", gps_sample_rate, 0);
+
+  /*
    * Document-method: latitude
    * call-seq:
    *   latitude -> Float
@@ -106,6 +117,8 @@ VALUE gps_initialize(VALUE self, VALUE serial) {
   GpsInfo *gps_info = ALLOC(GpsInfo); 
   memset(gps_info, 0, sizeof(GpsInfo));
 
+  gps_info->sample_rate = sample_create();
+
   CPhidgetGPSHandle gps = 0;
 
   ensure(CPhidgetGPS_create(&gps));
@@ -128,6 +141,12 @@ VALUE gps_close(VALUE self) {
  	ensure(CPhidgetGPS_set_OnPositionFixStatusChange_Handler((CPhidgetGPSHandle)info->handle, NULL, NULL));
 
   return rb_call_super(0,NULL);
+}
+
+VALUE gps_sample_rate(VALUE self) {
+  GpsInfo *gps_info = device_type_info(self);
+
+  return INT2FIX(gps_info->sample_rate->in_hz);
 }
 
 VALUE gps_latitude(VALUE self) {

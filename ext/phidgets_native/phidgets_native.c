@@ -139,3 +139,59 @@ int report(int result) {
 
   return result;
 }
+
+SampleRate *sample_create() {
+  SampleRate *ret = ALLOC(SampleRate); 
+  if (ret)
+    sample_zero(ret);
+
+  return ret;
+}
+
+int sample_zero(SampleRate *sample_rate) {
+  memset(sample_rate, 0, sizeof(SampleRate));
+
+  return 0;
+}
+
+int sample_free(SampleRate *sample_rate) {
+  xfree(sample_rate);
+  sample_rate = 0;
+  return 0;
+}
+
+/*
+ * The first time this is called, we're a little inadequate. Mostly this is because
+ * we're not including microseconds. If we included microseconds, then we could
+ * process a block if the seconds component were different than the last, and our
+ * microseconds were greater than the starting microsecond amount.
+ */
+int sample_tick(SampleRate *sample_rate, CPhidget_Timestamp *ts) {
+  unsigned long now_seconds;
+
+  sample_rate->samples_in_second++;
+
+  if (ts == NULL) {
+    // We can pull this ourself using the system times:
+    struct timeval now;
+    gettimeofday(&now, NULL);
+
+    now_seconds = (unsigned long) now.tv_sec;
+  } else
+    // Seems like the module has a timestamp for us to use:
+    now_seconds = (unsigned long) ts->seconds;
+
+  // Sample tracking
+  // We need the > 0 for the case of the first time we've ever entered this loop
+  if (sample_rate->last_second == 0)
+   sample_rate->last_second = now_seconds;
+  else if (sample_rate->last_second != now_seconds ) {
+   sample_rate->in_hz = (double)sample_rate->samples_in_second / 
+        (double) (now_seconds -sample_rate->last_second);
+   sample_rate->samples_in_second = 0;
+   sample_rate->last_second = now_seconds;
+  }
+
+  return 0;
+}
+

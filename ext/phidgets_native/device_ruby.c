@@ -138,17 +138,6 @@ void Init_phidgets_native_device(VALUE m_Phidget) {
    * function.
    */
   rb_define_method(c_Device, "version", device_version, 0);
-
-  /*
-   * Document-method: sample_rate
-   * call-seq:
-   *   sample_rate -> FixNum
-   *
-   * For most Phidgets, an event handler processes the device state changes at
-   * some regular interval. For these devices, this method will return the rate
-   * of state changes measured in Hz.
-   */
-  rb_define_method(c_Device, "sample_rate", device_sample_rate, 0);
 }
   
 
@@ -207,6 +196,11 @@ VALUE device_wait_for_attachment(VALUE self, VALUE timeout) {
   }
 
   ensure(CPhidget_waitForAttachment((CPhidgetHandle)info->handle, FIX2UINT(timeout)));
+
+  // We need to give the attach handler time to fire. Maybe there's a better way
+  // to do this. Also, there's no need to wait any further if the device wasn't 
+  // found...
+  usleep(10000);
    
   return timeout;
 }
@@ -406,11 +400,5 @@ VALUE device_version(VALUE self) {
   PhidgetInfo *info = device_info(self);
 
   return (info->version == 0) ? Qnil : INT2FIX(info->version);
-}  
-
-VALUE device_sample_rate(VALUE self) {
-  PhidgetInfo *info = device_info(self);
-
-  return INT2FIX(info->sample_rate);
 }  
 

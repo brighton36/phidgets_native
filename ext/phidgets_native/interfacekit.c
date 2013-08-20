@@ -88,6 +88,8 @@ int CCONV interfacekit_on_detach(CPhidgetHandle phid, void *userptr) {
   xfree(interfacekit_info->analog_input_states);
   interfacekit_info->analog_input_states = NULL;
   
+  sample_zero(interfacekit_info->sample_rate);
+  
   return 0;
 }
 
@@ -108,6 +110,8 @@ void interfacekit_on_free(void *type_info) {
     xfree(interfacekit_info->digital_output_states);
   if (interfacekit_info->analog_input_states)
     xfree(interfacekit_info->analog_input_states);
+  if (interfacekit_info->sample_rate)
+    sample_free(interfacekit_info->sample_rate);
   if (interfacekit_info)
     xfree(interfacekit_info);
   return;
@@ -117,7 +121,7 @@ int interfacekit_on_digital_change(CPhidgetInterfaceKitHandle interfacekit, void
   PhidgetInfo *info = userptr;
   InterfaceKitInfo *interfacekit_info = info->type_info;
 
-  device_sample(info, NULL);
+  sample_tick(interfacekit_info->sample_rate, NULL);
 
   if (interfacekit_info->digital_input_states)
     interfacekit_info->digital_input_states[index] = inputState;
@@ -129,7 +133,7 @@ int interfacekit_on_analog_change(CPhidgetInterfaceKitHandle interfacekit, void 
   PhidgetInfo *info = userptr;
   InterfaceKitInfo *interfacekit_info = info->type_info;
 
-  device_sample(info, NULL);
+  sample_tick(interfacekit_info->sample_rate, NULL);
 
   if (interfacekit_info->analog_input_states) {
     if (interfacekit_info->rationmetric_changed_usec == 0) 

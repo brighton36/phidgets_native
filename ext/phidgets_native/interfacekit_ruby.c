@@ -38,6 +38,17 @@ void Init_phidgets_native_interfacekit(VALUE m_Phidget) {
   rb_define_method(c_InterfaceKit, "close", interfacekit_close, 0);
 
   /*
+   * Document-method: sample_rate
+   * call-seq:
+   *   sample_rate -> FixNum
+   *
+   * For most Phidgets, an event handler processes the device state changes at
+   * some regular interval. For these devices, this method will return the rate
+   * of state changes measured in Hz.
+   */
+  rb_define_method(c_InterfaceKit, "sample_rate", interfacekit_sample_rate, 0);
+
+  /*
    * Document-method: input_count
    * call-seq:
    *   input_count -> Fixnum
@@ -180,6 +191,7 @@ VALUE interfacekit_initialize(VALUE self, VALUE serial) {
   memset(interfacekit_info, 0, sizeof(InterfaceKitInfo));
   interfacekit_info->is_ratiometric = false;
   interfacekit_info->is_data_rates_known = false;
+  interfacekit_info->sample_rate = sample_create();
 
   CPhidgetInterfaceKitHandle interfacekit = 0;
   ensure(CPhidgetInterfaceKit_create(&interfacekit));
@@ -203,6 +215,12 @@ VALUE interfacekit_close(VALUE self) {
   ensure(CPhidgetInterfaceKit_set_OnSensorChange_Handler((CPhidgetInterfaceKitHandle) info->handle, NULL, NULL));
 
   return rb_call_super(0,NULL);
+}
+
+VALUE interfacekit_sample_rate(VALUE self) {
+  InterfaceKitInfo *interfacekit_info = device_type_info(self);
+
+  return INT2FIX(interfacekit_info->sample_rate->in_hz);
 }
 
 VALUE interfacekit_input_count(VALUE self) {

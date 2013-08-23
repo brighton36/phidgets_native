@@ -278,6 +278,10 @@ VALUE interfacekit_change_triggers(VALUE self);
 VALUE interfacekit_inputs(VALUE self);
 VALUE interfacekit_outputs(VALUE self);
 VALUE interfacekit_sensors(VALUE self);
+VALUE interfacekit_sensor_raw(VALUE self, VALUE index);
+VALUE interfacekit_output_set(VALUE self, VALUE index, VALUE is_on);
+VALUE interfacekit_data_rate_set(VALUE self, VALUE index, VALUE rate);
+VALUE interfacekit_change_trigger_set(VALUE self, VALUE index, VALUE rate_thresh);
 
 // Phidget::Gps
 void gps_on_free(void *type_info);

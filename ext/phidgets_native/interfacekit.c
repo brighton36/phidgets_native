@@ -36,6 +36,7 @@ int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr) {
     ifkit_info->digital_sample_rates = ALLOC_N(SampleRate, ifkit_info->digital_input_count); 
     ifkit_info->analog_sample_rates = ALLOC_N(SampleRate, ifkit_info->analog_input_count); 
 
+    memset(ifkit_info->digital_output_states, 0, sizeof(int) * ifkit_info->digital_output_count);
     memset(ifkit_info->digital_sample_rates, 0, sizeof(SampleRate) * ifkit_info->digital_input_count);
     memset(ifkit_info->analog_sample_rates, 0, sizeof(SampleRate) * ifkit_info->analog_input_count);
 
@@ -50,15 +51,18 @@ int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr) {
     ifkit_info->is_data_rates_known = true;
   }
 
-  // TODO: Re-set digital output values here
-
   // If the interfacekit isn't what we expect, we need to perform a change:
   report(interfacekit_assert_ratiometric_state( info ));
 
   // Set the data-rate/sensor-thresholds
   for(int i=0;i<ifkit_info->analog_input_count;i++) {
-    report(CPhidgetInterfaceKit_setSensorChangeTrigger(interfacekit, i, ifkit_info->sensor_change_triggers[i]));
-    report(CPhidgetInterfaceKit_setDataRate(interfacekit, i, ifkit_info->data_rates[i]));
+    if (ifkit_info->data_rates[i] > 0) {
+      report(CPhidgetInterfaceKit_setSensorChangeTrigger(interfacekit, i, 0));
+      report(CPhidgetInterfaceKit_setDataRate(interfacekit, i, ifkit_info->data_rates[i]));
+    } else {
+      report(CPhidgetInterfaceKit_setDataRate(interfacekit, i, 0));
+      report(CPhidgetInterfaceKit_setSensorChangeTrigger(interfacekit, i, ifkit_info->sensor_change_triggers[i]));
+    }
   }
 
   // Read in all of our initial input values:
@@ -66,7 +70,7 @@ int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr) {
     report(CPhidgetInterfaceKit_getInputState(interfacekit,i, &ifkit_info->digital_input_states[i]));
 
   for(int i=0; i<ifkit_info->digital_output_count; i++)
-    report(CPhidgetInterfaceKit_getOutputState(interfacekit,i, &ifkit_info->digital_output_states[i]));
+    report(CPhidgetInterfaceKit_setOutputState(interfacekit,i, ifkit_info->digital_output_states[i]));
 
   for(int i=0; i<ifkit_info->analog_input_count; i++)
     if (ifkit_info->rationmetric_changed_usec == 0) 

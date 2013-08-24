@@ -91,7 +91,7 @@ latest Phidget driver for your system.
 We also recommend that you read the following reference materials:
 * {General Phidget Programming}[http://www.phidgets.com/docs/General_Phidget_Programming]
 * The {User Guide}[http://www.phidgets.com/docs/Category:UserGuide] for your device
-* {RubyDoc API Documentation}[http://rubydoc.info/gems/phidgets_native/frames]
+* {RubyDoc API Documentation}[http://rubydoc.info/github/brighton36/phidgets_native/master/frames]
 * {Ruby code samples}[https://github.com/kreynolds/phidgets_native/tree/master/examples]
 
 The RubyDoc API manual contains calls and events for every type of Phidget and 

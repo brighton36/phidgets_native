@@ -466,11 +466,9 @@ VALUE interfacekit_data_rate_set(VALUE self, VALUE index, VALUE rate) {
     rb_raise(rb_eTypeError, MSG_SENSOR_INDEX_TOO_HIGH);
 
   int rate_int = FIX2INT(rate);
-  if ((rate_int < ifkit_info->data_rates_min[index_int]) || (rate_int > ifkit_info->data_rates_max[index_int]))
+  if ((rate_int > ifkit_info->data_rates_min[index_int]) || (rate_int < ifkit_info->data_rates_max[index_int]))
     rb_raise(rb_eTypeError, MSG_DATA_RATE_EXCEEDS_LIMIT);
   
-  ensure(CPhidgetInterfaceKit_setSensorChangeTrigger(
-    (CPhidgetInterfaceKitHandle)info->handle, index_int, 0));
   ensure(CPhidgetInterfaceKit_setDataRate(
     (CPhidgetInterfaceKitHandle)info->handle, index_int, rate_int));
 
@@ -499,8 +497,6 @@ VALUE interfacekit_change_trigger_set(VALUE self, VALUE index, VALUE rate_thresh
   if ((rate_thresh_int < 1) || (rate_thresh_int > 1000))
     rb_raise(rb_eTypeError, MSG_CHANGE_TRIG_EXCEEDS_LIMIT);
   
-  ensure(CPhidgetInterfaceKit_setDataRate(
-    (CPhidgetInterfaceKitHandle)info->handle, index_int, 0));
   ensure(CPhidgetInterfaceKit_setSensorChangeTrigger(
     (CPhidgetInterfaceKitHandle)info->handle, index_int, rate_thresh_int));
 

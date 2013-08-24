@@ -16,9 +16,29 @@ additional_attribs = [
 ]
 
 phidgets_example_for(PhidgetsNative::InterfaceKit, additional_attribs) do |ifkit|
-  puts "TODO: Test all the setters" 
-  puts "\nPolled Values:"
+  # Here's how you set digital outputs:
+  (0...ifkit.output_count).each{ |i| ifkit.output i, i.even? }
 
+  # Let's adjust the data rates on each input a bit:
+  (0...ifkit.sensor_count).each do |i| 
+    case (i % 4)
+      when 0
+      when 1
+        ifkit.data_rate i, ifkit.data_rates_max[i]
+      when 2
+        ifkit.change_trigger i, 1
+      when 3
+        ifkit.data_rate i, ifkit.data_rates_min[i]
+    end
+  end
+
+  # Test sensor_raw
+  puts "Raw Analog sensor values:"
+  ConsoleTable.new((0...ifkit.sensor_count).collect{|i| "Sensor #{i}"}).output do 
+    [(0...ifkit.sensor_count).collect{|i| ifkit.sensor_raw(i).inspect } ]
+  end
+
+  puts "\nPolled Values:"
   i = 0
   ConsoleTable.new([
     'Input Sample Rates',

@@ -16,7 +16,6 @@ int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr) {
 
   // Allocate space for our state collections:
   ifkit_info->digital_input_states = ALLOC_N(int, ifkit_info->digital_input_count); 
-  ifkit_info->digital_output_states = ALLOC_N(int, ifkit_info->digital_output_count); 
   ifkit_info->analog_input_states = ALLOC_N(int, ifkit_info->analog_input_count); 
 
   // Allocate our data_rate-related collections
@@ -27,11 +26,13 @@ int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr) {
     if(ifkit_info->sensor_change_triggers) xfree(ifkit_info->sensor_change_triggers);
     if(ifkit_info->digital_sample_rates) xfree(ifkit_info->digital_sample_rates);
     if(ifkit_info->analog_sample_rates) xfree(ifkit_info->analog_sample_rates);
+    if(ifkit_info->digital_output_states) xfree(ifkit_info->digital_output_states);
 
     ifkit_info->data_rates = ALLOC_N(int, ifkit_info->analog_input_count);
     ifkit_info->data_rates_max = ALLOC_N(int, ifkit_info->analog_input_count);
     ifkit_info->data_rates_min = ALLOC_N(int, ifkit_info->analog_input_count);
     ifkit_info->sensor_change_triggers = ALLOC_N(int, ifkit_info->analog_input_count);
+    ifkit_info->digital_output_states = ALLOC_N(int, ifkit_info->digital_output_count); 
 
     ifkit_info->digital_sample_rates = ALLOC_N(SampleRate, ifkit_info->digital_input_count); 
     ifkit_info->analog_sample_rates = ALLOC_N(SampleRate, ifkit_info->analog_input_count); 
@@ -93,9 +94,6 @@ int CCONV interfacekit_on_detach(CPhidgetHandle phid, void *userptr) {
   // Free the polled resources:
   xfree(ifkit_info->digital_input_states);
   ifkit_info->digital_input_states = NULL;
-
-  xfree(ifkit_info->digital_output_states);
-  ifkit_info->digital_output_states = NULL;
 
   xfree(ifkit_info->analog_input_states);
   ifkit_info->analog_input_states = NULL;

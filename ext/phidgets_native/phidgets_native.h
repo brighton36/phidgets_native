@@ -139,6 +139,8 @@ typedef struct interfacekit_info {
   // I use it to determine whether the input counts have changed between device
   // plug events.
   int analog_input_count_prior;
+  int digital_input_count_prior;
+  int digital_output_count_prior;
 
   bool is_ratiometric;
   int rationmetric_changed_usec;
@@ -157,6 +159,24 @@ typedef struct interfacekit_info {
   int *analog_input_states;
 
 } InterfaceKitInfo;
+
+typedef struct advancedservo_info {
+  SampleRate *sample_rates;
+
+  bool is_motor_count_known;
+  int motor_count;
+  int motor_count_prior;
+
+  double *acceleration_max;
+  double *acceleration_min;
+  double *velocity_max;
+  double *velocity_min;
+
+  double *current;
+  double *position;
+  double *velocity;
+
+} AdvancedServoInfo;
 
 void Init_phidgets_native();
 void Init_phidgets_native_module();
@@ -200,7 +220,7 @@ VALUE phidget_disable_logging(VALUE class);
 VALUE phidget_log(VALUE class, VALUE log_level, VALUE message);
 VALUE phidget_all(VALUE class);
 
-// Phidget::Device
+// PhidgetsNative::Device
 PhidgetInfo *device_info(VALUE self);
 void *device_type_info(VALUE self);
 void device_free(PhidgetInfo *info);
@@ -221,7 +241,7 @@ VALUE device_label(VALUE self);
 VALUE device_serial_number(VALUE self);
 VALUE device_version(VALUE self);
 
-// Phidget::Spatial
+// PhidgetsNative::Spatial
 void spatial_on_free(void *type_info);
 int CCONV spatial_on_attach(CPhidgetHandle phid, void *userptr);
 int CCONV spatial_on_detach(CPhidgetHandle phid, void *userptr);
@@ -255,7 +275,7 @@ VALUE spatial_data_rate_max(VALUE self);
 VALUE spatial_data_rate_set(VALUE self, VALUE data_rate);
 VALUE spatial_data_rate_get(VALUE self);
 
-// Phidget::InterfaceKit
+// PhidgetsNative::InterfaceKit
 void interfacekit_on_free(void *type_info);
 int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr);
 int CCONV interfacekit_on_detach(CPhidgetHandle phid, void *userptr);
@@ -283,7 +303,7 @@ VALUE interfacekit_output_set(VALUE self, VALUE index, VALUE is_on);
 VALUE interfacekit_data_rate_set(VALUE self, VALUE index, VALUE rate);
 VALUE interfacekit_change_trigger_set(VALUE self, VALUE index, VALUE rate_thresh);
 
-// Phidget::Gps
+// PhidgetsNative::Gps
 void gps_on_free(void *type_info);
 int CCONV gps_on_attach(CPhidgetHandle phid, void *userptr);
 int CCONV gps_on_detach(CPhidgetHandle phidget, void *userptr);
@@ -299,6 +319,33 @@ VALUE gps_heading(VALUE self);
 VALUE gps_velocity(VALUE self);
 VALUE gps_is_fixed(VALUE self);
 VALUE gps_now_at_utc(VALUE self);
+
+// PhidgetsNative::AdvancedServo
+void advancedservo_on_free(void *type_info);
+int CCONV advancedservo_on_attach(CPhidgetHandle phid, void *userptr);
+int CCONV advancedservo_on_detach(CPhidgetHandle phid, void *userptr);
+int CCONV advancedservo_on_velocity_change(CPhidgetAdvancedServoHandle phid, void *userPtr, int index, double velocity);
+int CCONV advancedservo_on_position_change(CPhidgetAdvancedServoHandle phid, void *userPtr, int index, double position);
+int CCONV advancedservo_on_current_change(CPhidgetAdvancedServoHandle phid, void *userPtr, int index, double current);
+VALUE advancedservo_initialize(VALUE self, VALUE serial);
+VALUE advancedservo_close(VALUE self);
+VALUE advancedservo_motor_count(VALUE self);
+VALUE advancedservo_sample_rates(VALUE self);
+VALUE advancedservo_acceleration_max(VALUE self);
+VALUE advancedservo_acceleration_min(VALUE self);
+VALUE advancedservo_velocity_max(VALUE self);
+VALUE advancedservo_velocity_min(VALUE self);
+VALUE advancedservo_currents(VALUE self);
+VALUE advancedservo_positions(VALUE self);
+VALUE advancedservo_velocities(VALUE self);
+VALUE advancedservo_acceleration_get(VALUE self, VALUE index);
+VALUE advancedservo_velocity_limit_get(VALUE self, VALUE index);
+VALUE advancedservo_position_max_get(VALUE self, VALUE index);
+VALUE advancedservo_position_min_get(VALUE self, VALUE index);
+VALUE advancedservo_is_speed_ramping(VALUE self, VALUE index);
+VALUE advancedservo_is_engaged(VALUE self, VALUE index);
+VALUE advancedservo_is_stopped(VALUE self, VALUE index);
+VALUE advancedservo_servo_type(VALUE self, VALUE index);
 
 // Stub initializers:
 VALUE accelerometer_initialize(VALUE self, VALUE serial);

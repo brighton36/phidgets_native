@@ -262,14 +262,14 @@ VALUE interfacekit_initialize(VALUE self, VALUE serial) {
   CPhidgetInterfaceKitHandle interfacekit = 0;
   ensure(CPhidgetInterfaceKit_create(&interfacekit));
 
-  ensure(CPhidgetInterfaceKit_set_OnInputChange_Handler(interfacekit, interfacekit_on_digital_change, info));
-  ensure(CPhidgetInterfaceKit_set_OnSensorChange_Handler(interfacekit, interfacekit_on_analog_change, info));
-
   info->handle = (CPhidgetHandle)interfacekit;
   info->on_type_attach = interfacekit_on_attach;
   info->on_type_detach = interfacekit_on_detach;
   info->on_type_free = interfacekit_on_free;
   info->type_info = ifkit_info;
+
+  ensure(CPhidgetInterfaceKit_set_OnInputChange_Handler(interfacekit, interfacekit_on_digital_change, info));
+  ensure(CPhidgetInterfaceKit_set_OnSensorChange_Handler(interfacekit, interfacekit_on_analog_change, info));
 
   return rb_call_super(1, &serial);
 }
@@ -286,6 +286,8 @@ VALUE interfacekit_close(VALUE self) {
 VALUE interfacekit_sensor_sample_rates(VALUE self) {
   InterfaceKitInfo *ifkit_info = device_type_info(self);
 
+  if (!ifkit_info->is_analog_input_count_known) return Qnil;
+
   int *rates_in_hz = ALLOC_N(int, ifkit_info->analog_input_count);
   for(int i=0; i<ifkit_info->analog_input_count; i++)
     rates_in_hz[i] = ifkit_info->analog_sample_rates[i].in_hz;
@@ -300,7 +302,9 @@ VALUE interfacekit_sensor_sample_rates(VALUE self) {
 VALUE interfacekit_input_sample_rates(VALUE self) {
   InterfaceKitInfo *ifkit_info = device_type_info(self);
 
-  int *rates_in_hz = ALLOC_N(int, ifkit_info->analog_input_count);
+  if (!ifkit_info->is_digital_input_count_known) return Qnil;
+
+  int *rates_in_hz = ALLOC_N(int, ifkit_info->digital_input_count);
   for(int i=0; i<ifkit_info->digital_input_count; i++)
     rates_in_hz[i] = ifkit_info->digital_sample_rates[i].in_hz;
 

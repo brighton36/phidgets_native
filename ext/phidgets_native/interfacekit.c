@@ -18,27 +18,36 @@ int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr) {
   ifkit_info->digital_input_states = ALLOC_N(int, ifkit_info->digital_input_count); 
   ifkit_info->analog_input_states = ALLOC_N(int, ifkit_info->analog_input_count); 
 
-  // Allocate our data_rate-related collections
+  if (ifkit_info->digital_input_count_prior != ifkit_info->digital_input_count) {
+    if(ifkit_info->digital_sample_rates) xfree(ifkit_info->digital_sample_rates);
+
+    ifkit_info->digital_sample_rates = ALLOC_N(SampleRate, ifkit_info->digital_input_count); 
+
+    memset(ifkit_info->digital_sample_rates, 0, sizeof(SampleRate) * ifkit_info->digital_input_count);
+  }
+
+  if (ifkit_info->digital_output_count_prior != ifkit_info->digital_output_count) {
+    if(ifkit_info->digital_output_states) xfree(ifkit_info->digital_output_states);
+
+    ifkit_info->digital_output_states = ALLOC_N(int, ifkit_info->digital_output_count); 
+
+    memset(ifkit_info->digital_output_states, 0, sizeof(int) * ifkit_info->digital_output_count);
+  }
+
   if (ifkit_info->analog_input_count_prior != ifkit_info->analog_input_count) {
     if(ifkit_info->data_rates) xfree(ifkit_info->data_rates);
     if(ifkit_info->data_rates_max) xfree(ifkit_info->data_rates_max);
     if(ifkit_info->data_rates_min) xfree(ifkit_info->data_rates_min);
     if(ifkit_info->sensor_change_triggers) xfree(ifkit_info->sensor_change_triggers);
-    if(ifkit_info->digital_sample_rates) xfree(ifkit_info->digital_sample_rates);
     if(ifkit_info->analog_sample_rates) xfree(ifkit_info->analog_sample_rates);
-    if(ifkit_info->digital_output_states) xfree(ifkit_info->digital_output_states);
 
     ifkit_info->data_rates = ALLOC_N(int, ifkit_info->analog_input_count);
     ifkit_info->data_rates_max = ALLOC_N(int, ifkit_info->analog_input_count);
     ifkit_info->data_rates_min = ALLOC_N(int, ifkit_info->analog_input_count);
     ifkit_info->sensor_change_triggers = ALLOC_N(int, ifkit_info->analog_input_count);
-    ifkit_info->digital_output_states = ALLOC_N(int, ifkit_info->digital_output_count); 
 
-    ifkit_info->digital_sample_rates = ALLOC_N(SampleRate, ifkit_info->digital_input_count); 
     ifkit_info->analog_sample_rates = ALLOC_N(SampleRate, ifkit_info->analog_input_count); 
 
-    memset(ifkit_info->digital_output_states, 0, sizeof(int) * ifkit_info->digital_output_count);
-    memset(ifkit_info->digital_sample_rates, 0, sizeof(SampleRate) * ifkit_info->digital_input_count);
     memset(ifkit_info->analog_sample_rates, 0, sizeof(SampleRate) * ifkit_info->analog_input_count);
 
     for(int i=0;i<ifkit_info->analog_input_count;i++) {
@@ -90,6 +99,8 @@ int CCONV interfacekit_on_detach(CPhidgetHandle phid, void *userptr) {
 
   // This is used to determine whethere to preserve the allocated memory on reattach:
   ifkit_info->analog_input_count_prior = ifkit_info->analog_input_count;
+  ifkit_info->digital_input_count_prior = ifkit_info->digital_input_count;
+  ifkit_info->digital_output_count_prior = ifkit_info->digital_output_count;
 
   // Free the polled resources:
   xfree(ifkit_info->digital_input_states);

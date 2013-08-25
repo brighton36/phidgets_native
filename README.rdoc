@@ -22,16 +22,16 @@ Presumably most other UNIX variants will work just fine. Probably win32/win64
 will not.
 
 ==Supported Devices
-As of this version, we currently only support the following phidgets:
+As of the most recent version of this library, we support the following phidgets:
 * Phidget Spatial
 * Phidget GPS
 * Phidget Interface Kit
-There will soon be support for the "Phidget Servo" phidget. If you have a phidget 
-that's not on our current compatibility list, either get me a copy of the phidget 
-to work with at my desk, or check out the existing modules for a reference in 
-setting up your own class, and push your changes to my repo. Most of the difficult 
-work is done, and you'll find plenty of stubs to work with for nearly all the 
-available phidgets.
+* Phidget Advanced Servo
+If you have a phidget that's not on the compatibility list, either buy me a copy 
+of the phidget you need support for, or check out the existing modules for a 
+reference in setting up your own class, and push your changes to my repo. Most 
+of the difficult work is done, and you'll find plenty of stubs to work with for 
+nearly all the available phidgets.
 
 =Why not Phidgets-FFI?
 Though encompassing, Phidgets-FFI is seemingly quite buggy, and a bit slow. Particularly
@@ -60,7 +60,7 @@ is attached. If the device is disconnected and reconnected, your phidget object
 will automatically re-register its handlers with the device, and continue to 
 function as if the device were never disconnected to begin with. Keep in mind that
 any attributes relating to the device's capabilities (mostly those in the 
-Phidget::Device class, though there are things like the axial extents in the 
+PhidgetsNative::Device class, though there are things like the axial extents in the 
 spatial object) will be 'cached' from the previous connection. "State" attributes
 (such as the spatial's accelerometer output) will return nil or 0.
 
@@ -68,7 +68,7 @@ In practice, if you need an event-driven model for your code, you can almost cer
 get by using a ruby thread with a polling loop, like so:
 
   is_fixed_last = false 
-  @poller = Thread.new(Phidget::GPS(12345)) do |gps| 
+  @poller = Thread.new(PhidgetsNative::GPS(12345)) do |gps| 
     gps.wait_for_attachment(10000)
 
     begin
@@ -92,7 +92,7 @@ We also recommend that you read the following reference materials:
 * {General Phidget Programming}[http://www.phidgets.com/docs/General_Phidget_Programming]
 * The {User Guide}[http://www.phidgets.com/docs/Category:UserGuide] for your device
 * {RubyDoc API Documentation}[http://rubydoc.info/github/brighton36/phidgets_native/master/frames]
-* {Ruby code samples}[https://github.com/kreynolds/phidgets_native/tree/master/examples]
+* {Ruby code samples}[https://github.com/brighton36/phidgets_native/tree/master/examples]
 
 The RubyDoc API manual contains calls and events for every type of Phidget and 
 can be used as a reference. You can find a high level discussion about programming 
@@ -136,7 +136,7 @@ will reserve the device until closed. This prevents any other instances from
 retrieving data from the Phidget, including other programs. 
 
 ==Standard accessors
-All devices support the accessors defined in the Phidget::Device class from which
+All devices support the accessors defined in the PhidgetsNative::Device class from which
 they inherit. 
 
 ==A note about device availability

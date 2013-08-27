@@ -32,6 +32,9 @@ phidgets_example_for(PhidgetsNative::InterfaceKit, additional_attribs) do |ifkit
     end
   end
 
+  # Set the ratiometric state
+  ifkit.ratiometric = false
+
   # Test sensor_raw
   puts "Raw Analog sensor values:"
   ConsoleTable.new((0...ifkit.sensor_count).collect{|i| "Sensor #{i}"}).output do 
@@ -49,8 +52,6 @@ phidgets_example_for(PhidgetsNative::InterfaceKit, additional_attribs) do |ifkit
     '%-20s' % 'outputs'
   ]).output(:header => (i == 0), :separator => false) do |columns|
     i+=1
-
-    #TODO Test the ratiometric set at some point
 
     [ [ifkit.input_sample_rates, ifkit.sensor_sample_rates, ifkit.ratiometric?.inspect, 
       ifkit.sensors.inspect]+[ifkit.inputs, ifkit.outputs].collect{ |bools|

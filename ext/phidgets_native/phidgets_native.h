@@ -338,14 +338,19 @@ VALUE advancedservo_velocity_min(VALUE self);
 VALUE advancedservo_currents(VALUE self);
 VALUE advancedservo_positions(VALUE self);
 VALUE advancedservo_velocities(VALUE self);
-VALUE advancedservo_acceleration_get(VALUE self, VALUE index);
-VALUE advancedservo_velocity_limit_get(VALUE self, VALUE index);
-VALUE advancedservo_position_max_get(VALUE self, VALUE index);
-VALUE advancedservo_position_min_get(VALUE self, VALUE index);
+VALUE advancedservo_acceleration(int argc, VALUE* argv, VALUE self);
+VALUE advancedservo_velocity_limit(int argc, VALUE* argv, VALUE self);
+VALUE advancedservo_position_max(int argc, VALUE* argv, VALUE self);
+VALUE advancedservo_position_min(int argc, VALUE* argv, VALUE self);
+VALUE advancedservo_servo_type(int argc, VALUE* argv, VALUE self);
+VALUE advancedservo_position_set(VALUE self, VALUE index, VALUE value);
 VALUE advancedservo_is_speed_ramping(VALUE self, VALUE index);
+VALUE advancedservo_speed_ramping_set(VALUE self, VALUE index, VALUE value);
 VALUE advancedservo_is_engaged(VALUE self, VALUE index);
+VALUE advancedservo_engaged_set(VALUE self, VALUE index, VALUE value);
 VALUE advancedservo_is_stopped(VALUE self, VALUE index);
-VALUE advancedservo_servo_type(VALUE self, VALUE index);
+VALUE advancedservo_servo_parameters_set(VALUE self, VALUE index, VALUE min_us, VALUE max_us, VALUE degrees, VALUE velocity_max);
+
 
 // Stub initializers:
 VALUE accelerometer_initialize(VALUE self, VALUE serial);

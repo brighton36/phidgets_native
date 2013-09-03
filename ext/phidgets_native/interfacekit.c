@@ -40,15 +40,20 @@ int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr) {
     if(ifkit_info->data_rates_min) xfree(ifkit_info->data_rates_min);
     if(ifkit_info->sensor_change_triggers) xfree(ifkit_info->sensor_change_triggers);
     if(ifkit_info->analog_sample_rates) xfree(ifkit_info->analog_sample_rates);
+    if(ifkit_info->is_ratiometric) xfree(ifkit_info->is_ratiometric);
+    if(ifkit_info->updated_since_last_ratiometric_cycle) xfree(ifkit_info->updated_since_last_ratiometric_cycle);
 
     ifkit_info->data_rates = ALLOC_N(int, ifkit_info->analog_input_count);
     ifkit_info->data_rates_max = ALLOC_N(int, ifkit_info->analog_input_count);
     ifkit_info->data_rates_min = ALLOC_N(int, ifkit_info->analog_input_count);
     ifkit_info->sensor_change_triggers = ALLOC_N(int, ifkit_info->analog_input_count);
-
     ifkit_info->analog_sample_rates = ALLOC_N(SampleRate, ifkit_info->analog_input_count); 
+    ifkit_info->is_ratiometric = ALLOC_N(bool, ifkit_info->analog_input_count); 
+    ifkit_info->updated_since_last_ratiometric_cycle = ALLOC_N(bool, ifkit_info->analog_input_count); 
 
     memset(ifkit_info->analog_sample_rates, 0, sizeof(SampleRate) * ifkit_info->analog_input_count);
+    memset(ifkit_info->is_ratiometric, 0, sizeof(bool) * ifkit_info->analog_input_count);
+    memset(ifkit_info->updated_since_last_ratiometric_cycle, 0, sizeof(bool) * ifkit_info->analog_input_count);
 
     for(int i=0;i<ifkit_info->analog_input_count;i++) {
       ifkit_info->data_rates[i] = DEFAULT_INTERFACEKIT_DATA_RATE;
@@ -61,18 +66,15 @@ int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr) {
     ifkit_info->is_data_rates_known = true;
   }
 
-  // If the interfacekit isn't what we expect, we need to perform a change:
-  report(interfacekit_assert_ratiometric_state( info ));
-
-  // Set the data-rate/sensor-thresholds
-  for(int i=0;i<ifkit_info->analog_input_count;i++) {
-    if (ifkit_info->data_rates[i] > 0) {
-      report(CPhidgetInterfaceKit_setSensorChangeTrigger(interfacekit, i, 0));
-      report(CPhidgetInterfaceKit_setDataRate(interfacekit, i, ifkit_info->data_rates[i]));
-    } else {
-      report(CPhidgetInterfaceKit_setDataRate(interfacekit, i, 0));
-      report(CPhidgetInterfaceKit_setSensorChangeTrigger(interfacekit, i, ifkit_info->sensor_change_triggers[i]));
-    }
+  if ( interfacekit_ratiometric_state_is_uniform(ifkit_info) ) {
+    // Set the board's ratiometric state:
+    report(interfacekit_assert_ratiometric_state( info ));
+    // Set the data-rate/sensor-thresholds
+    report(interfacekit_assert_sensor_rates(info));
+  }
+  else {
+    report(interfacekit_assert_dual_ratiometric_mode(info));
+    report(interfacekit_maximize_data_rate(info));
   }
 
   // Read in all of our initial input values:
@@ -83,7 +85,7 @@ int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr) {
     report(CPhidgetInterfaceKit_setOutputState(interfacekit,i, ifkit_info->digital_output_states[i]));
 
   for(int i=0; i<ifkit_info->analog_input_count; i++)
-    if (ifkit_info->rationmetric_changed_usec == 0) 
+    if (ifkit_info->ratiometric_changed_usec == 0) 
       // We only read these in if we haven't recently been changed ratiometric status: 
       report(CPhidgetInterfaceKit_getSensorValue(interfacekit,i, &ifkit_info->analog_input_states[i]));
     else
@@ -119,26 +121,18 @@ int CCONV interfacekit_on_detach(CPhidgetHandle phid, void *userptr) {
 void interfacekit_on_free(void *type_info) {
   InterfaceKitInfo *ifkit_info = type_info;
 
-  if(ifkit_info->data_rates)
-    xfree(ifkit_info->data_rates);
-  if(ifkit_info->data_rates_min)
-    xfree(ifkit_info->data_rates_min);
-  if(ifkit_info->data_rates_max)
-    xfree(ifkit_info->data_rates_max);
-  if(ifkit_info->sensor_change_triggers)
-    xfree(ifkit_info->sensor_change_triggers);
-  if (ifkit_info->digital_input_states)
-    xfree(ifkit_info->digital_input_states);
-  if (ifkit_info->digital_output_states)
-    xfree(ifkit_info->digital_output_states);
-  if (ifkit_info->analog_input_states)
-    xfree(ifkit_info->analog_input_states);
-  if(ifkit_info->digital_sample_rates) 
-    xfree(ifkit_info->digital_sample_rates);
-  if(ifkit_info->analog_sample_rates) 
-    xfree(ifkit_info->analog_sample_rates);
-  if (ifkit_info)
-    xfree(ifkit_info);
+  if(ifkit_info->is_ratiometric) xfree(ifkit_info->is_ratiometric);
+  if(ifkit_info->updated_since_last_ratiometric_cycle) xfree(ifkit_info->updated_since_last_ratiometric_cycle);
+  if(ifkit_info->data_rates) xfree(ifkit_info->data_rates);
+  if(ifkit_info->data_rates_min) xfree(ifkit_info->data_rates_min);
+  if(ifkit_info->data_rates_max) xfree(ifkit_info->data_rates_max);
+  if(ifkit_info->sensor_change_triggers) xfree(ifkit_info->sensor_change_triggers);
+  if (ifkit_info->digital_input_states) xfree(ifkit_info->digital_input_states);
+  if (ifkit_info->digital_output_states) xfree(ifkit_info->digital_output_states);
+  if (ifkit_info->analog_input_states) xfree(ifkit_info->analog_input_states);
+  if(ifkit_info->digital_sample_rates) xfree(ifkit_info->digital_sample_rates);
+  if(ifkit_info->analog_sample_rates) xfree(ifkit_info->analog_sample_rates);
+  if (ifkit_info) xfree(ifkit_info);
   return;
 }
 
@@ -158,11 +152,13 @@ int interfacekit_on_analog_change(CPhidgetInterfaceKitHandle interfacekit, void 
   PhidgetInfo *info = userptr;
   InterfaceKitInfo *ifkit_info = info->type_info;
 
-  sample_tick(&ifkit_info->analog_sample_rates[index], NULL);
+  bool record_value = false;
 
   if (ifkit_info->analog_input_states) {
-    if (ifkit_info->rationmetric_changed_usec == 0) 
-      ifkit_info->analog_input_states[index] = sensorValue;
+    if (ifkit_info->is_dual_ratiometric_mode && interfacekit_is_time_to_flip_ratiometric_state(ifkit_info) ) {
+      report(interfacekit_flip_ratiometric_state(info));
+    } else if (ifkit_info->ratiometric_changed_usec == 0) 
+      record_value = true;
     else {
       // We need to wait 50 milliseconds before accepting values after a ratiometric
       // state change. If we're in this path, it's TBD whether 50 ms has passed
@@ -171,16 +167,23 @@ int interfacekit_on_analog_change(CPhidgetInterfaceKitHandle interfacekit, void 
       gettimeofday(&now, NULL);
 
       usec_difference = ( now.tv_usec + 
-        ( (now.tv_usec < ifkit_info->rationmetric_changed_usec)  ? 1000000 : 0) -
-        ifkit_info->rationmetric_changed_usec );
+        ( (now.tv_usec < ifkit_info->ratiometric_changed_usec)  ? 1000000 : 0) -
+        ifkit_info->ratiometric_changed_usec );
          
       // Did we wait long enough between a ratiometric status change:
       if ( usec_difference > INTERFACEKIT_RATIOMETRIC_RESET_USECS ) {
-        ifkit_info->rationmetric_changed_usec = 0;
+        ifkit_info->ratiometric_changed_usec = 0;
         
-        // And sure, go ahead and accepti this value:
-        ifkit_info->analog_input_states[index] = sensorValue;
+        // And sure, go ahead and accept this value:
+        record_value = true;
       }
+    }
+
+    if (record_value) {
+      ifkit_info->analog_input_states[index] = sensorValue;
+      sample_tick(&ifkit_info->analog_sample_rates[index], NULL);
+      if(ifkit_info->is_dual_ratiometric_mode)
+        ifkit_info->updated_since_last_ratiometric_cycle[index] = true;
     }
   }
 
@@ -192,23 +195,126 @@ int interfacekit_assert_ratiometric_state(PhidgetInfo *info) {
   CPhidgetInterfaceKitHandle interfacekit = (CPhidgetInterfaceKitHandle) info->handle;
   int ret = 0;
 
-  int is_ratiometric_already;
-  ret = CPhidgetInterfaceKit_getRatiometric(interfacekit, &is_ratiometric_already);
-  if (ret != EPHIDGET_OK) return ret;
+  bool change_mode = false;
 
-  if (ifkit_info->is_ratiometric != (ifkit_info->is_ratiometric == PTRUE) ) {
-    ret = CPhidgetInterfaceKit_setRatiometric(interfacekit, (ifkit_info->is_ratiometric) ? PTRUE : PFALSE );
+  if (ifkit_info->is_dual_ratiometric_mode) {
+    ifkit_info->is_dual_ratiometric_mode = false;
+    change_mode = true;
+    report(interfacekit_assert_sensor_rates(info));
+  } else {
+    int is_ratiometric_already;
+    ret = CPhidgetInterfaceKit_getRatiometric(interfacekit, &is_ratiometric_already);
+    if (ret != EPHIDGET_OK) return ret;
+
+    if (ifkit_info->is_ratiometric[0] != (is_ratiometric_already == PTRUE) )
+      change_mode = true;
+  }
+
+  if (change_mode) {
+    ret = CPhidgetInterfaceKit_setRatiometric(interfacekit, (ifkit_info->is_ratiometric[0]) ? PTRUE : PFALSE );
     if (ret != EPHIDGET_OK) return ret;
 
     // Zero-out the analog struct:
     memset(ifkit_info->analog_input_states, 0, sizeof(int) * ifkit_info->analog_input_count);
 
     // We need to wait 50ms after this change before we start to read in values:
-    struct timeval now;
-    gettimeofday(&now, NULL);
-
-    ifkit_info->rationmetric_changed_usec = (now.tv_usec == 0) ? 1 : now.tv_usec;
+    interfacekit_stamp_ratiometric_change(ifkit_info);
   }
+
+  return EPHIDGET_OK;
+}
+
+bool interfacekit_ratiometric_state_is_uniform(InterfaceKitInfo *ifkit_info) {
+  bool first_state = ifkit_info->is_ratiometric[0];
+
+  for(int i=1; i<ifkit_info->analog_input_count;i++)
+    if (ifkit_info->is_ratiometric[i] != first_state)
+      return false;
+
+  return true;
+}
+
+bool interfacekit_is_time_to_flip_ratiometric_state(InterfaceKitInfo *ifkit_info) {
+  for(int i=0; i<ifkit_info->analog_input_count;i++)
+    if (ifkit_info->updated_since_last_ratiometric_cycle[i] == false)
+      return false;
+
+  return true;
+}
+
+// This method ensures that the sensor data rates are set to what's been requested
+// by the user. It's typically only used when initializing, and when turning on
+// a uniform ratiometric state:
+int interfacekit_assert_sensor_rates(PhidgetInfo *info) {
+  InterfaceKitInfo *ifkit_info = info->type_info;
+  CPhidgetInterfaceKitHandle interfacekit = (CPhidgetInterfaceKitHandle) info->handle;
+
+  for(int i=0;i<ifkit_info->analog_input_count;i++) {
+    if (ifkit_info->data_rates[i] > 0) {
+      report(CPhidgetInterfaceKit_setSensorChangeTrigger(interfacekit, i, 0));
+      report(CPhidgetInterfaceKit_setDataRate(interfacekit, i, ifkit_info->data_rates[i]));
+    } else {
+      report(CPhidgetInterfaceKit_setDataRate(interfacekit, i, 0));
+      report(CPhidgetInterfaceKit_setSensorChangeTrigger(interfacekit, i, ifkit_info->sensor_change_triggers[i]));
+    }
+  }
+
+  return EPHIDGET_OK;
+}
+
+int interfacekit_assert_dual_ratiometric_mode(PhidgetInfo *info) {
+  InterfaceKitInfo *ifkit_info = info->type_info;
+
+  if (!ifkit_info->is_dual_ratiometric_mode) {
+    ifkit_info->is_dual_ratiometric_mode = true;
+    memset(ifkit_info->updated_since_last_ratiometric_cycle, 0, sizeof(bool) * ifkit_info->analog_input_count);
+    return interfacekit_maximize_data_rate(info);
+  }
+
+  return EPHIDGET_OK;
+}
+
+int interfacekit_maximize_data_rate(PhidgetInfo *info) {
+  InterfaceKitInfo *ifkit_info = info->type_info;
+  CPhidgetInterfaceKitHandle interfacekit = (CPhidgetInterfaceKitHandle) info->handle;
+
+  for(int i=0;i<ifkit_info->analog_input_count;i++)
+    if (ifkit_info->data_rates[i] > 0) {
+      report(CPhidgetInterfaceKit_setSensorChangeTrigger(interfacekit, i, 0));
+      report(CPhidgetInterfaceKit_setDataRate(interfacekit, i, DEFAULT_INTERFACEKIT_DATA_RATE));
+    }
+
+  return EPHIDGET_OK;
+}
+
+int interfacekit_flip_ratiometric_state(PhidgetInfo *info) {
+  InterfaceKitInfo *ifkit_info = info->type_info;
+  CPhidgetInterfaceKitHandle interfacekit = (CPhidgetInterfaceKitHandle) info->handle;
+
+  int ret;
+  int current_state;
+
+  ret = CPhidgetInterfaceKit_getRatiometric(interfacekit, &current_state);
+  if (ret != EPHIDGET_OK) return ret;
+
+  ret = CPhidgetInterfaceKit_setRatiometric(interfacekit, (current_state) ? PFALSE : PTRUE );
+  if (ret != EPHIDGET_OK) return ret;
+
+  // We need to wait 50ms after this change before we start to read in values:
+  interfacekit_stamp_ratiometric_change(ifkit_info);
+
+  memset(ifkit_info->updated_since_last_ratiometric_cycle, 0, sizeof(bool) * ifkit_info->analog_input_count);
+
+  return EPHIDGET_OK;
+}
+
+// This stamps the ifkit struct with the current time. We cheat a bit to make
+// our lookup code a bit easier, by stamping the case of 0 with a 1:
+int interfacekit_stamp_ratiometric_change(InterfaceKitInfo *ifkit_info) {
+  struct timeval now;
+  gettimeofday(&now, NULL);
+
+  ifkit_info->ratiometric_changed_usec = (now.tv_usec == 0) ? 1 : now.tv_usec;
 
   return EPHIDGET_OK;
 }

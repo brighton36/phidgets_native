@@ -12,6 +12,8 @@ const char MSG_DATA_RATE_EXCEEDS_LIMIT[] = "provided rate exceeds allowed limit"
 const char MSG_CHANGE_TRIG_VALUE_MUST_BE_FIXNUM[] = "threshold must be a fixnum";
 const char MSG_CHANGE_TRIG_EXCEEDS_LIMIT[] = "provided threshold exceeds allowed limit";
 
+const char MSG_RATIOMETRIC_NOT_UNIFORM[] = "this action can't be performed unless all sensors are of the same ratiometric state";
+
 /* 
  * Document-class: PhidgetsNative::InterfaceKit < PhidgetsNative::Device
  *
@@ -20,10 +22,19 @@ const char MSG_CHANGE_TRIG_EXCEEDS_LIMIT[] = "provided threshold exceeds allowed
  * provides interfaces for outputing to analog and digital components.
  */
 
+/*
+ * Document-class: PhidgetsNative::InterfaceKit::RatiometricNotUniform
+ *
+ * This exception is raised when the library encounters a request that cannot be
+ * satisfied since the ratiometric state of the analog sensors are not uniform.
+ */
 void Init_phidgets_native_interfacekit(VALUE m_Phidget) {
   VALUE c_Device = rb_const_get(m_Phidget, rb_intern("Device"));
 
   VALUE c_InterfaceKit = rb_define_class_under(m_Phidget,"InterfaceKit",c_Device);
+
+  VALUE c_RatiometricNotUniform = rb_define_class_under(c_InterfaceKit, 
+    "RatiometricNotUniform", rb_eStandardError);
 
   /*
    * Document-method: new
@@ -118,6 +129,26 @@ void Init_phidgets_native_interfacekit(VALUE m_Phidget) {
    * {Analog Inputs Primer}[http://www.phidgets.com/docs/Analog_Input_Primer#Ratiometric_Configuration]
    */
   rb_define_method(c_InterfaceKit, "ratiometric=", interfacekit_ratiometric_set, 1);
+
+  /*
+   * Document-method: ratiometric
+   * call-seq:
+   *   ratiometric(Fixnum index, Boolean state) -> Fixnum
+   *
+   * This method sets the ratiometric state for the analog sensor at the provided 
+   * index. Note that phidget boards only support a board-wide ratiometric state.
+   * As such, when you set the state per the sensor in this library, the library
+   * will automatically toggle the board state between ratio and non-ratio metric
+   * modes for you. As a side-effect of the toggle action, your data rate will
+   * drop substantially, and you'll not be able to adjust the data_rate and 
+   * change_trigger parameters. To re-enable the data_rate and change_trigger 
+   * features, use the ratiometric= method to set the state for the entire board.
+   * The return value for this method is simply what was specified for 
+   * the state. 
+   * For more information on how analog inputs are polled, you can read up on the
+   * Phidget {Analog Input Primer}[http://www.phidgets.com/docs/Analog_Input_Primer] 
+   */
+   rb_define_method(c_InterfaceKit, "ratiometric", interfacekit_ratiometric, -1);
 
   /*
    * Document-method: data_rates_max
@@ -256,8 +287,8 @@ VALUE interfacekit_initialize(VALUE self, VALUE serial) {
   
   InterfaceKitInfo *ifkit_info = ALLOC(InterfaceKitInfo); 
   memset(ifkit_info, 0, sizeof(InterfaceKitInfo));
-  ifkit_info->is_ratiometric = false;
   ifkit_info->is_data_rates_known = false;
+  ifkit_info->is_dual_ratiometric_mode = false;
 
   CPhidgetInterfaceKitHandle interfacekit = 0;
   ensure(CPhidgetInterfaceKit_create(&interfacekit));
@@ -339,6 +370,10 @@ VALUE interfacekit_sensor_count(VALUE self) {
 VALUE interfacekit_is_ratiometric(VALUE self) {
   InterfaceKitInfo *ifkit_info = device_type_info(self);
 
+  // If ratiometric state is not uniform, raise an exception
+  if (!interfacekit_ratiometric_state_is_uniform(ifkit_info))
+    interfacekit_raise_ratiometric_not_uniform();
+
   return (ifkit_info->is_ratiometric) ? Qtrue : Qfalse;
 }
 
@@ -346,17 +381,62 @@ VALUE interfacekit_ratiometric_set(VALUE self, VALUE is_ratiometric) {
   PhidgetInfo *info = device_info(self);
   InterfaceKitInfo *ifkit_info = device_type_info(self);
 
+  if (!info->is_attached) return Qnil;
+
+  bool is_ratiometric_bool;
+
   if (TYPE(is_ratiometric) == T_TRUE) 
-    ifkit_info->is_ratiometric = true;
+    is_ratiometric_bool = true;
   else if (TYPE(is_ratiometric) == T_FALSE)
-    ifkit_info->is_ratiometric = false;
+    is_ratiometric_bool = false;
   else
     rb_raise(rb_eTypeError, MSG_RATIOMETRIC_MUST_BE_BOOL);
 
-  if (info->is_attached)
-    ensure(interfacekit_assert_ratiometric_state( info ));
+  for(int i=0; i<ifkit_info->analog_input_count;i++)
+    ifkit_info->is_ratiometric[i] = is_ratiometric_bool;
+
+  ensure(interfacekit_assert_ratiometric_state( info ));
 
   return is_ratiometric;
+}
+
+VALUE interfacekit_ratiometric(int argc, VALUE* argv, VALUE self) {
+  VALUE index;
+  VALUE is_ratiometric;
+
+  rb_scan_args(argc, argv, "11", &index, &is_ratiometric);
+
+  if (TYPE(index) != T_FIXNUM)
+    rb_raise(rb_eTypeError, MSG_SENSOR_INDEX_MUST_BE_FIXNUM);
+
+  PhidgetInfo *info = device_info(self);
+  InterfaceKitInfo *ifkit_info = info->type_info;
+
+  int index_int = FIX2INT(index);
+  if ((ifkit_info->analog_input_count == 0) || (index_int > (ifkit_info->analog_input_count-1)))
+    rb_raise(rb_eTypeError, MSG_SENSOR_INDEX_TOO_HIGH);
+
+  VALUE ret;  
+  if(NIL_P(is_ratiometric)) {
+    // It's a get request:
+    ret = (ifkit_info->is_ratiometric[index_int]) ? Qtrue : Qfalse;
+  } else {
+    if (TYPE(is_ratiometric) == T_TRUE) 
+      ifkit_info->is_ratiometric[index_int] = true;
+    else if (TYPE(is_ratiometric) == T_FALSE)
+      ifkit_info->is_ratiometric[index_int] = false;
+    else
+      rb_raise(rb_eTypeError, MSG_RATIOMETRIC_MUST_BE_BOOL);
+
+    ret = is_ratiometric;
+
+    if (interfacekit_ratiometric_state_is_uniform(ifkit_info))
+      ensure(interfacekit_assert_ratiometric_state(info));
+    else
+      ensure(interfacekit_assert_dual_ratiometric_mode(info));
+  }
+
+  return ret;
 }
 
 VALUE interfacekit_data_rates_max(VALUE self) {
@@ -459,6 +539,10 @@ VALUE interfacekit_data_rate_set(VALUE self, VALUE index, VALUE rate) {
   PhidgetInfo *info = device_info(self);
   InterfaceKitInfo *ifkit_info = info->type_info;
 
+  // If ratiometric state is not uniform, raise an exception
+  if (!interfacekit_ratiometric_state_is_uniform(ifkit_info))
+    interfacekit_raise_ratiometric_not_uniform();
+
   if (TYPE(index) != T_FIXNUM)
     rb_raise(rb_eTypeError, MSG_SENSOR_INDEX_MUST_BE_FIXNUM);
 
@@ -486,6 +570,10 @@ VALUE interfacekit_change_trigger_set(VALUE self, VALUE index, VALUE rate_thresh
   PhidgetInfo *info = device_info(self);
   InterfaceKitInfo *ifkit_info = info->type_info;
 
+  // If ratiometric state is not uniform, raise an exception
+  if (!interfacekit_ratiometric_state_is_uniform(ifkit_info))
+    interfacekit_raise_ratiometric_not_uniform();
+
   if (TYPE(index) != T_FIXNUM)
     rb_raise(rb_eTypeError, MSG_SENSOR_INDEX_MUST_BE_FIXNUM);
 
@@ -508,4 +596,16 @@ VALUE interfacekit_change_trigger_set(VALUE self, VALUE index, VALUE rate_thresh
   ifkit_info->sensor_change_triggers[index_int] = rate_thresh_int;
 
   return rate_thresh;
+}
+
+void interfacekit_raise_ratiometric_not_uniform() {
+  VALUE m_Phidget = rb_const_get(rb_cObject, rb_intern("PhidgetsNative"));  
+
+  VALUE c_InterfaceKit = rb_const_get(m_Phidget, rb_intern("InterfaceKit")); 
+
+  VALUE c_Exception = rb_const_get(c_InterfaceKit, rb_intern("RatiometricNotUniform"));
+
+  rb_raise(c_Exception, MSG_RATIOMETRIC_NOT_UNIFORM);
+
+  return;
 }

@@ -142,8 +142,13 @@ typedef struct interfacekit_info {
   int digital_input_count_prior;
   int digital_output_count_prior;
 
-  bool is_ratiometric;
-  int rationmetric_changed_usec;
+  bool is_dual_ratiometric_mode;
+  bool *is_ratiometric;
+  int ratiometric_changed_usec;
+
+  // This tracks whether it's time to change the ratiometric state, for the case
+  // of a dual-mode ratiometric change:
+  bool *updated_since_last_ratiometric_cycle;
 
 
   // This flag works for all of the below properties
@@ -282,6 +287,14 @@ int CCONV interfacekit_on_detach(CPhidgetHandle phid, void *userptr);
 int interfacekit_on_digital_change(CPhidgetInterfaceKitHandle interfacekit, void *userptr, int index, int inputState);
 int interfacekit_on_analog_change(CPhidgetInterfaceKitHandle interfacekit, void *userptr, int index, int sensorValue);
 int interfacekit_assert_ratiometric_state(PhidgetInfo *info);
+bool interfacekit_ratiometric_state_is_uniform(InterfaceKitInfo *ifkit_info);
+void interfacekit_raise_ratiometric_not_uniform();
+int interfacekit_maximize_data_rate(PhidgetInfo *info);
+int interfacekit_assert_dual_ratiometric_mode(PhidgetInfo *info);
+int interfacekit_assert_sensor_rates(PhidgetInfo *info);
+int interfacekit_stamp_ratiometric_change(InterfaceKitInfo *ifkit_info);
+int interfacekit_flip_ratiometric_state(PhidgetInfo *info);
+bool interfacekit_is_time_to_flip_ratiometric_state(InterfaceKitInfo *ifkit_info);
 VALUE interfacekit_initialize(VALUE self, VALUE serial);
 VALUE interfacekit_close(VALUE self);
 VALUE interfacekit_sensor_sample_rates(VALUE self);
@@ -291,6 +304,7 @@ VALUE interfacekit_output_count(VALUE self);
 VALUE interfacekit_sensor_count(VALUE self);
 VALUE interfacekit_is_ratiometric(VALUE self);
 VALUE interfacekit_ratiometric_set(VALUE self, VALUE is_ratiometric);
+VALUE interfacekit_ratiometric(int argc, VALUE* argv, VALUE self);
 VALUE interfacekit_data_rates_max(VALUE self);
 VALUE interfacekit_data_rates_min(VALUE self);
 VALUE interfacekit_data_rates(VALUE self);
@@ -350,7 +364,6 @@ VALUE advancedservo_is_engaged(VALUE self, VALUE index);
 VALUE advancedservo_engaged_set(VALUE self, VALUE index, VALUE value);
 VALUE advancedservo_is_stopped(VALUE self, VALUE index);
 VALUE advancedservo_servo_parameters_set(VALUE self, VALUE index, VALUE min_us, VALUE max_us, VALUE degrees, VALUE velocity_max);
-
 
 // Stub initializers:
 VALUE accelerometer_initialize(VALUE self, VALUE serial);

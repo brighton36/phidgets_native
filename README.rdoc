@@ -179,4 +179,8 @@ if you think you have something you need to add.
 - Added dual-ratiometric mode features and interfaces to the InterfaceKit
 
 == Version 0.2.0
-- First gem release, supporting all api functions of the Spatial, GPS, InterfaceKit, & AdvancedServo phidgets
+- Added support for all api functions of the AdvancedServo Phidget 
+- Added support for all api functions of the InterfaceKit Phidget
+
+== Version 0.1.0
+- First gem release, supporting all api functions of the Spatial & GPS Phidgets

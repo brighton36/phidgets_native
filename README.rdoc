@@ -167,10 +167,16 @@ by the Phidget API and/or hardware.
 ==Logging
 The phidget api has built in debug logging which can be enabled on a global basis
 for all devices. By default, logs are sent to STDOUT, but you can optionally 
-pass a path to a text file where output can alternatively be redirected. You can
-also send your own messages to the logger, if you think you have something you
-need to add.
-
+pass a path to a text file where output can alternatively be redirected. 
   PhidgetsNative.enable_logging!(:verbose)
   PhidgetsNative.log :info, "My favorite color is chartreuse"
   PhidgetsNative.disable_logging!
+Note that you can also use the log method to send your own messages to the logger,
+if you think you have something you need to add.
+
+=Changelog
+== Version 0.2.1
+- Added dual-ratiometric mode features and interfaces to the InterfaceKit
+
+== Version 0.2.0
+- First gem release, supporting all api functions of the Spatial, GPS, InterfaceKit, & AdvancedServo phidgets

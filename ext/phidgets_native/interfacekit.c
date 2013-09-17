@@ -154,12 +154,12 @@ int interfacekit_on_analog_change(CPhidgetInterfaceKitHandle interfacekit, void 
 
   bool record_value = false;
 
+  int current_ratiometric_state = PFALSE;
+
   if (ifkit_info->analog_input_states) {
-    if (ifkit_info->is_dual_ratiometric_mode && interfacekit_is_time_to_flip_ratiometric_state(ifkit_info) ) {
+    if (ifkit_info->is_dual_ratiometric_mode && interfacekit_is_time_to_flip_ratiometric_state(info) ) {
       report(interfacekit_flip_ratiometric_state(info));
-    } else if (ifkit_info->ratiometric_changed_usec == 0) 
-      record_value = true;
-    else {
+    } else if (ifkit_info->ratiometric_changed_usec != 0) {
       // We need to wait 50 milliseconds before accepting values after a ratiometric
       // state change. If we're in this path, it's TBD whether 50 ms has passed
       int usec_difference;
@@ -169,14 +169,21 @@ int interfacekit_on_analog_change(CPhidgetInterfaceKitHandle interfacekit, void 
       usec_difference = ( now.tv_usec + 
         ( (now.tv_usec < ifkit_info->ratiometric_changed_usec)  ? 1000000 : 0) -
         ifkit_info->ratiometric_changed_usec );
-         
+
       // Did we wait long enough between a ratiometric status change:
       if ( usec_difference > INTERFACEKIT_RATIOMETRIC_RESET_USECS ) {
         ifkit_info->ratiometric_changed_usec = 0;
-        
-        // And sure, go ahead and accept this value:
-        record_value = true;
       }
+    }
+
+    if (ifkit_info->ratiometric_changed_usec == 0) {
+      if (ifkit_info->is_dual_ratiometric_mode) {
+        report(CPhidgetInterfaceKit_getRatiometric(interfacekit, &current_ratiometric_state));
+
+        if ( (current_ratiometric_state == PTRUE) == ifkit_info->is_ratiometric[index] )
+          record_value = true;
+      } else
+        record_value = true;
     }
 
     if (record_value) {
@@ -234,9 +241,17 @@ bool interfacekit_ratiometric_state_is_uniform(InterfaceKitInfo *ifkit_info) {
   return true;
 }
 
-bool interfacekit_is_time_to_flip_ratiometric_state(InterfaceKitInfo *ifkit_info) {
+bool interfacekit_is_time_to_flip_ratiometric_state(PhidgetInfo *info) {
+  InterfaceKitInfo *ifkit_info = info->type_info;
+  CPhidgetInterfaceKitHandle interfacekit = (CPhidgetInterfaceKitHandle) info->handle;
+
+  int current_ratiometric_state = PFALSE;
+
+  report(CPhidgetInterfaceKit_getRatiometric(interfacekit, &current_ratiometric_state));
+
   for(int i=0; i<ifkit_info->analog_input_count;i++)
-    if (ifkit_info->updated_since_last_ratiometric_cycle[i] == false)
+    if ( (ifkit_info->is_ratiometric[i] == (current_ratiometric_state == PTRUE)) &&   
+      (ifkit_info->updated_since_last_ratiometric_cycle[i] == false) )
       return false;
 
   return true;

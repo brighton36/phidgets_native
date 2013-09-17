@@ -20,6 +20,23 @@ const char MSG_RATIOMETRIC_NOT_UNIFORM[] = "this action can't be performed unles
  * This class provides functionality specific to the "InterfaceKit" device class. 
  * Primarily, this phidget reports the values of analog and digital inputs, and
  * provides interfaces for outputing to analog and digital components.
+ *
+ * *NOTE:* Unlike the native phidget libraries, this implementation supports a 
+ * "Dual Ratiometric" mode for the interface kit. This dual-mode is acheived by
+ * rapidly cycling the controller between ratiometric on and off states in the 
+ * device polling loop. The benefit to supporting mixed states is that you 
+ * can support multiple devices types on a single controller. Unfortunately, 
+ * the ramification of doing so reduces the sample rates to a small fraction
+ * (roughly 8 times per second) of the maximum data rate (roughly 125 times per
+ * second). For many applications, the sampling rates aren't so sensitive that 
+ * dual-ratiometric mode will be a problem.
+ *
+ * "Dual ratiometric" mode will automatically enable itself if you specify per-sensor
+ * ratiometric states using the ratiometric() method. Similary, uniform-ratiometric
+ * mode will automatically return at any time that all sensors return to a uniform
+ * state. If you don't intend to take advantage of this feature, simply use the
+ * ratiometric= method to set all analog inputs to the same state, and ignore the
+ * ratiometric() method.
  */
 
 /*

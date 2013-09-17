@@ -294,7 +294,7 @@ int interfacekit_assert_dual_ratiometric_mode(PhidgetInfo *info);
 int interfacekit_assert_sensor_rates(PhidgetInfo *info);
 int interfacekit_stamp_ratiometric_change(InterfaceKitInfo *ifkit_info);
 int interfacekit_flip_ratiometric_state(PhidgetInfo *info);
-bool interfacekit_is_time_to_flip_ratiometric_state(InterfaceKitInfo *ifkit_info);
+bool interfacekit_is_time_to_flip_ratiometric_state(PhidgetInfo *info);
 VALUE interfacekit_initialize(VALUE self, VALUE serial);
 VALUE interfacekit_close(VALUE self);
 VALUE interfacekit_sensor_sample_rates(VALUE self);

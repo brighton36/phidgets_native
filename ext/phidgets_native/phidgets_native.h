@@ -280,6 +280,8 @@ VALUE spatial_data_rate_max(VALUE self);
 VALUE spatial_data_rate_set(VALUE self, VALUE data_rate);
 VALUE spatial_data_rate_get(VALUE self);
 
+VALUE spatial_direction_cosine_matrix(int argc, VALUE *argv, VALUE self);
+
 // PhidgetsNative::InterfaceKit
 void interfacekit_on_free(void *type_info);
 int CCONV interfacekit_on_attach(CPhidgetHandle phid, void *userptr);

@@ -1,9 +1,14 @@
 #include "phidgets_native.h"
+#include <ctype.h>
 
 const char MSG_COMPASS_CORRECTION_NOT_ARRAY[] = "compass correction must be a 13 element array";
 const char MSG_COMPASS_CORRECTION_MUST_BE_FLOAT[] = "compass correction elements must be float or fixnum";
 const char MSG_DATA_RATE_MUST_BE_NUM[] = "data rate must be fixnum";
+const char MSG_AROUND_MUST_BE_FLOAT[] = "rotation angles must be fixnums";
+const char MSG_IN_ORDER_MUST_BE_STRING[] = "rotation order must be a string";
+const char MSG_INVALID_ROTATION_AXIS[] = "invalid rotation axis in rotation order, must be x, y, or z";
 
+const char DEFAULT_IN_ORDER_STR[] = "xyz";
 /*
  * Document-class: PhidgetsNative::Spatial < PhidgetsNative::Device
  *
@@ -13,6 +18,10 @@ const char MSG_DATA_RATE_MUST_BE_NUM[] = "data rate must be fixnum";
  */
 
 void Init_phidgets_native_spatial(VALUE m_Phidget) {
+  // We need this for the orientation code mostly:
+  rb_funcall(rb_mKernel, rb_intern("require"), 1, rb_str_new2("matrix"));
+
+  // And now attach methods to the object:
   VALUE c_Device = rb_const_get(m_Phidget, rb_intern("Device"));
 
   VALUE c_Spatial = rb_define_class_under(m_Phidget,"Spatial",c_Device);
@@ -311,7 +320,15 @@ void Init_phidgets_native_spatial(VALUE m_Phidget) {
    */
   rb_define_method(c_Spatial, "data_rate", spatial_data_rate_get, 0);
   
-
+  /*
+   * call-seq:
+   *   direction_cosine_matrix( FixNum around_x, FixNum around_y, FixNum around_z, String in_order = 'xyz' ) -> Matrix
+   * This private method is used internally to return a single direction cosine 
+   * Matrix that represents the combined translations provided around the x,y, 
+   * and z axis. The optional in_order will translate around the axis in the 
+   * order provided.
+   */
+  rb_define_private_method(c_Spatial, "direction_cosine_matrix", spatial_direction_cosine_matrix, -1);
 }
 
 VALUE spatial_initialize(VALUE self, VALUE serial) {
@@ -530,4 +547,141 @@ VALUE spatial_data_rate_get(VALUE self) {
   SpatialInfo *spatial_info = device_type_info(self);
 
   return INT2FIX(spatial_info->data_rate);
+}
+
+/*
+def direction_cosine_matrix(around_x, around_y, around_z, in_order = 'XYZ')
+  rotations = {
+    # X-rotation:
+    :x => Matrix.rows([
+      [1.0, 0, 0],
+      [0, Math.cos(around_x), Math.sin(around_x) * (-1.0)],
+      [0, Math.sin(around_x), Math.cos(around_x)]
+    ]), 
+
+    # Y-rotation:
+    :y => Matrix.rows([
+      [Math.cos(around_y), 0, Math.sin(around_y)],
+      [0, 1.0, 0],
+      [Math.sin(around_y) * (-1.0), 0, Math.cos(around_y)]
+    ]), 
+
+    # Z-rotation:
+    :z => Matrix.rows([ 
+      [Math.cos(around_z), Math.sin(around_z) * (-1.0), 0],
+      [Math.sin(around_z), Math.cos(around_z), 0],
+      [0, 0, 1.0]
+    ]) 
+  }
+
+  in_order.chars.collect{ |axis| rotations[axis.downcase.to_sym] }.reduce(:*)
+end 
+*/
+
+VALUE spatial_direction_cosine_matrix(int argc, VALUE *argv, VALUE self) {
+  VALUE around_x;
+  VALUE around_y; 
+  VALUE around_z; 
+  VALUE in_order;
+
+  const char *in_order_str = NULL;
+  double dbl_around_x;
+  double dbl_around_y;
+  double dbl_around_z;
+
+  rb_scan_args(argc, argv, "31", &around_x, &around_y, &around_z, &in_order);
+
+  // TODO: Test the optional in_order
+  if (TYPE(in_order) == T_STRING)
+    in_order_str = StringValueCStr(in_order);
+  else if( TYPE(in_order) != T_NIL)
+    rb_raise(rb_eTypeError, MSG_IN_ORDER_MUST_BE_STRING);
+
+  // Validate the inputs:
+  if (TYPE(around_x) == T_FLOAT)
+    dbl_around_x = NUM2DBL(around_x);
+  else
+    rb_raise(rb_eTypeError, MSG_AROUND_MUST_BE_FLOAT);
+
+  if (TYPE(around_y) == T_FLOAT)
+    dbl_around_y = NUM2DBL(around_y);
+  else
+    rb_raise(rb_eTypeError, MSG_AROUND_MUST_BE_FLOAT);
+
+  if (TYPE(around_z) == T_FLOAT)
+    dbl_around_z = NUM2DBL(around_z);
+  else
+    rb_raise(rb_eTypeError, MSG_AROUND_MUST_BE_FLOAT);
+
+  // Perform the actual rotation:
+  double mA[3][3];
+  double mB[3][3];
+  double mRet[3][3] = { {1.0,0.0,0.0}, {0.0,1.0,0.0}, {0.0,0.0,1.0}}; 
+
+  unsigned long in_order_length = strlen((in_order_str) ? in_order_str : DEFAULT_IN_ORDER_STR); 
+
+  for (unsigned long i = 0; i < in_order_length; i++) {
+    switch (tolower((in_order_str) ? in_order_str[i] : DEFAULT_IN_ORDER_STR[i])) {
+      case 'x':
+        mB[0][0] = 1.0; mB[0][1] = 0.0;               mB[0][2] = 0.0;
+        mB[1][0] = 0.0; mB[1][1] = cos(dbl_around_x); mB[1][2] = sin(dbl_around_x) * (-1.0);
+        mB[2][0] = 0.0; mB[2][1] = sin(dbl_around_x); mB[2][2] = cos(dbl_around_x);
+        break;
+      case 'y':
+        mB[0][0] = cos(dbl_around_y);          mB[0][1] = 0.0; mB[0][2] = sin(dbl_around_y);
+        mB[1][0] = 0.0;                        mB[1][1] = 1.0; mB[1][2] = 0.0;
+        mB[2][0] = sin(dbl_around_y) * (-1.0); mB[2][1] = 0.0; mB[2][2] = cos(dbl_around_y);
+        break;
+      case 'z':
+        mB[0][0] = cos(dbl_around_z); mB[0][1] = sin(dbl_around_z) * (-1.0); mB[0][2] = 0.0;
+        mB[1][0] = sin(dbl_around_z); mB[1][1] = cos(dbl_around_z);          mB[1][2] = 0.0;
+        mB[2][0] = 0.0;               mB[2][1] = 0.0;                        mB[2][2] = 1.0;
+        break;
+      default:
+        rb_raise(rb_eTypeError, MSG_INVALID_ROTATION_AXIS);
+        break;
+    }
+
+    memcpy(&mA, &mRet, sizeof(mRet));
+
+    // Accumulate via multiplication
+    mRet[0][0] = mA[0][0]*mB[0][0] + mA[1][0]*mB[0][1] + mA[2][0]*mB[0][2];
+    mRet[0][1] = mA[0][0]*mB[1][0] + mA[1][0]*mB[1][1] + mA[2][0]*mB[1][2];
+    mRet[0][2] = mA[0][0]*mB[2][0] + mA[1][0]*mB[2][1] + mA[2][0]*mB[2][2];
+
+    mRet[1][0] = mA[0][1]*mB[0][0] + mA[1][1]*mB[0][1] + mA[2][1]*mB[0][2];
+    mRet[1][1] = mA[0][1]*mB[1][0] + mA[1][1]*mB[1][1] + mA[2][1]*mB[1][2];
+    mRet[1][2] = mA[0][1]*mB[2][0] + mA[1][1]*mB[2][1] + mA[2][1]*mB[2][2];
+
+    mRet[2][0] = mA[0][2]*mB[0][0] + mA[1][2]*mB[0][1] + mA[2][2]*mB[0][2];
+    mRet[2][1] = mA[0][2]*mB[1][0] + mA[1][2]*mB[1][1] + mA[2][2]*mB[1][2];
+    mRet[2][2] = mA[0][2]*mB[2][0] + mA[1][2]*mB[2][1] + mA[2][2]*mB[2][2];
+  }
+
+  // TODO: for loop
+  VALUE aryRow1 = rb_ary_new2(3);
+  VALUE aryRow2 = rb_ary_new2(3);
+  VALUE aryRow3 = rb_ary_new2(3);
+
+  rb_ary_store(aryRow1, 0, rb_float_new(mRet[0][0]));
+  rb_ary_store(aryRow1, 1, rb_float_new(mRet[0][1]));
+  rb_ary_store(aryRow1, 2, rb_float_new(mRet[0][2]));
+
+  rb_ary_store(aryRow2, 0, rb_float_new(mRet[1][0]));
+  rb_ary_store(aryRow2, 1, rb_float_new(mRet[1][1]));
+  rb_ary_store(aryRow2, 2, rb_float_new(mRet[1][2]));
+
+  rb_ary_store(aryRow3, 0, rb_float_new(mRet[2][0]));
+  rb_ary_store(aryRow3, 1, rb_float_new(mRet[2][1]));
+  rb_ary_store(aryRow3, 2, rb_float_new(mRet[2][2]));
+
+  VALUE aryRet = rb_ary_new2(3);
+  rb_ary_store(aryRet, 0, aryRow1);
+  rb_ary_store(aryRet, 1, aryRow2);
+  rb_ary_store(aryRet, 2, aryRow3);
+
+  VALUE c_Matrix = rb_const_get( rb_cObject, rb_intern("Matrix") );
+  VALUE rbMatrixRet = rb_funcall(c_Matrix, rb_intern("rows"), 1, aryRet);     
+  
+  return rbMatrixRet;  
 }

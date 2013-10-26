@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name    = "phidgets_native"
-  s.version = "0.2.1"
+  s.version = "0.2.3"
   s.summary = "Native C-extension gem for the Phidgets library in ruby"
   s.author  = "Chris DeRose"
   s.description = s.summary
@@ -17,5 +17,6 @@ Gem::Specification.new do |s|
   s.extensions << "ext/phidgets_native/extconf.rb"
   
   s.add_development_dependency "rake-compiler"
+  s.add_development_dependency "rspec"
 end
 

@@ -326,7 +326,7 @@ void Init_phidgets_native_spatial(VALUE m_Phidget) {
    * This private method is used internally to return a single direction cosine 
    * Matrix that represents the combined translations provided around the x,y, 
    * and z axis. The optional in_order will translate around the axis in the 
-   * order provided.
+   * order provided. Angles are expected to be in radians.
    */
   rb_define_private_method(c_Spatial, "direction_cosine_matrix", spatial_direction_cosine_matrix, -1);
 }
@@ -549,35 +549,6 @@ VALUE spatial_data_rate_get(VALUE self) {
   return INT2FIX(spatial_info->data_rate);
 }
 
-/*
-def direction_cosine_matrix(around_x, around_y, around_z, in_order = 'XYZ')
-  rotations = {
-    # X-rotation:
-    :x => Matrix.rows([
-      [1.0, 0, 0],
-      [0, Math.cos(around_x), Math.sin(around_x) * (-1.0)],
-      [0, Math.sin(around_x), Math.cos(around_x)]
-    ]), 
-
-    # Y-rotation:
-    :y => Matrix.rows([
-      [Math.cos(around_y), 0, Math.sin(around_y)],
-      [0, 1.0, 0],
-      [Math.sin(around_y) * (-1.0), 0, Math.cos(around_y)]
-    ]), 
-
-    # Z-rotation:
-    :z => Matrix.rows([ 
-      [Math.cos(around_z), Math.sin(around_z) * (-1.0), 0],
-      [Math.sin(around_z), Math.cos(around_z), 0],
-      [0, 0, 1.0]
-    ]) 
-  }
-
-  in_order.chars.collect{ |axis| rotations[axis.downcase.to_sym] }.reduce(:*)
-end 
-*/
-
 VALUE spatial_direction_cosine_matrix(int argc, VALUE *argv, VALUE self) {
   VALUE around_x;
   VALUE around_y; 
@@ -591,7 +562,6 @@ VALUE spatial_direction_cosine_matrix(int argc, VALUE *argv, VALUE self) {
 
   rb_scan_args(argc, argv, "31", &around_x, &around_y, &around_z, &in_order);
 
-  // TODO: Test the optional in_order
   if (TYPE(in_order) == T_STRING)
     in_order_str = StringValueCStr(in_order);
   else if( TYPE(in_order) != T_NIL)
@@ -642,46 +612,29 @@ VALUE spatial_direction_cosine_matrix(int argc, VALUE *argv, VALUE self) {
         break;
     }
 
+    // Accumulate into ret, via multiplication
     memcpy(&mA, &mRet, sizeof(mRet));
-
-    // Accumulate via multiplication
-    mRet[0][0] = mA[0][0]*mB[0][0] + mA[1][0]*mB[0][1] + mA[2][0]*mB[0][2];
-    mRet[0][1] = mA[0][0]*mB[1][0] + mA[1][0]*mB[1][1] + mA[2][0]*mB[1][2];
-    mRet[0][2] = mA[0][0]*mB[2][0] + mA[1][0]*mB[2][1] + mA[2][0]*mB[2][2];
-
-    mRet[1][0] = mA[0][1]*mB[0][0] + mA[1][1]*mB[0][1] + mA[2][1]*mB[0][2];
-    mRet[1][1] = mA[0][1]*mB[1][0] + mA[1][1]*mB[1][1] + mA[2][1]*mB[1][2];
-    mRet[1][2] = mA[0][1]*mB[2][0] + mA[1][1]*mB[2][1] + mA[2][1]*mB[2][2];
-
-    mRet[2][0] = mA[0][2]*mB[0][0] + mA[1][2]*mB[0][1] + mA[2][2]*mB[0][2];
-    mRet[2][1] = mA[0][2]*mB[1][0] + mA[1][2]*mB[1][1] + mA[2][2]*mB[1][2];
-    mRet[2][2] = mA[0][2]*mB[2][0] + mA[1][2]*mB[2][1] + mA[2][2]*mB[2][2];
+    memset(&mRet, 0, sizeof(mRet));
+ 
+    for (unsigned int i = 0; i < 3; i++)
+      for (unsigned int j = 0; j < 3; j++)
+        for (unsigned int k = 0; k < 3; k++)
+          mRet[i][j] += mA[i][k] * mB[k][j];
   }
 
-  // TODO: for loop
-  VALUE aryRow1 = rb_ary_new2(3);
-  VALUE aryRow2 = rb_ary_new2(3);
-  VALUE aryRow3 = rb_ary_new2(3);
-
-  rb_ary_store(aryRow1, 0, rb_float_new(mRet[0][0]));
-  rb_ary_store(aryRow1, 1, rb_float_new(mRet[0][1]));
-  rb_ary_store(aryRow1, 2, rb_float_new(mRet[0][2]));
-
-  rb_ary_store(aryRow2, 0, rb_float_new(mRet[1][0]));
-  rb_ary_store(aryRow2, 1, rb_float_new(mRet[1][1]));
-  rb_ary_store(aryRow2, 2, rb_float_new(mRet[1][2]));
-
-  rb_ary_store(aryRow3, 0, rb_float_new(mRet[2][0]));
-  rb_ary_store(aryRow3, 1, rb_float_new(mRet[2][1]));
-  rb_ary_store(aryRow3, 2, rb_float_new(mRet[2][2]));
-
+  // To compose a Matrix, we need a 3x3 array of floats:
   VALUE aryRet = rb_ary_new2(3);
-  rb_ary_store(aryRet, 0, aryRow1);
-  rb_ary_store(aryRet, 1, aryRow2);
-  rb_ary_store(aryRet, 2, aryRow3);
+  for (unsigned int i=0; i < 3; i++) {
+    VALUE arRow = rb_ary_new2(3);
+
+    for (unsigned int j=0; j < 3; j++)
+      rb_ary_store(arRow, j, rb_float_new(mRet[i][j]));
+
+    rb_ary_store(aryRet, i, arRow);
+  }
 
   VALUE c_Matrix = rb_const_get( rb_cObject, rb_intern("Matrix") );
-  VALUE rbMatrixRet = rb_funcall(c_Matrix, rb_intern("rows"), 1, aryRet);     
+  VALUE rbMatrixRet = rb_funcall(c_Matrix, rb_intern("rows"), 2, aryRet, Qfalse);     
   
   return rbMatrixRet;  
 }

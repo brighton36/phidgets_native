@@ -4,7 +4,7 @@
 const char MSG_COMPASS_CORRECTION_NOT_ARRAY[] = "compass correction must be a 13 element array";
 const char MSG_COMPASS_CORRECTION_MUST_BE_FLOAT[] = "compass correction elements must be float or fixnum";
 const char MSG_DATA_RATE_MUST_BE_NUM[] = "data rate must be fixnum";
-const char MSG_AROUND_MUST_BE_FLOAT[] = "rotation angles must be fixnums";
+const char MSG_AROUND_MUST_BE_NUMERIC[] = "rotation angles must be fixnums or floats";
 const char MSG_IN_ORDER_MUST_BE_STRING[] = "rotation order must be a string";
 const char MSG_INVALID_ROTATION_AXIS[] = "invalid rotation axis in rotation order, must be x, y, or z";
 
@@ -329,6 +329,26 @@ void Init_phidgets_native_spatial(VALUE m_Phidget) {
    * order provided. Angles are expected to be in radians.
    */
   rb_define_private_method(c_Spatial, "direction_cosine_matrix", spatial_direction_cosine_matrix, -1);
+
+  /*
+   * call-seq:
+   *   acceleration_to_roll_and_pitch -> Array
+   * This private method is used internally to return an array whose first double 
+   * contains the roll and whose second contains the pitch component of the 
+   * acceleration. Values are expressed in radians.
+   */
+  rb_define_private_method(c_Spatial, "acceleration_to_roll_and_pitch", spatial_acceleration_to_roll_and_pitch, 0);
+
+  /*
+   * Document-method: acceleration_to_euler
+   * call-seq:
+   *   acceleration_to_euler -> Array
+   *
+   * This method returns a three element array of euler angles (yaw, roll, pitch)
+   * representing the vector of acceleration, as currently reflected by the 
+   * spatial sensor.
+   */
+  rb_define_method(c_Spatial, "acceleration_to_euler", spatial_acceleration_to_euler, 0);
 }
 
 VALUE spatial_initialize(VALUE self, VALUE serial) {
@@ -568,20 +588,20 @@ VALUE spatial_direction_cosine_matrix(int argc, VALUE *argv, VALUE self) {
     rb_raise(rb_eTypeError, MSG_IN_ORDER_MUST_BE_STRING);
 
   // Validate the inputs:
-  if (TYPE(around_x) == T_FLOAT)
+  if ( (TYPE(around_x) == T_FLOAT) || (TYPE(around_x) == T_FIXNUM ) )
     dbl_around_x = NUM2DBL(around_x);
   else
-    rb_raise(rb_eTypeError, MSG_AROUND_MUST_BE_FLOAT);
+    rb_raise(rb_eTypeError, MSG_AROUND_MUST_BE_NUMERIC);
 
-  if (TYPE(around_y) == T_FLOAT)
+  if ( (TYPE(around_y) == T_FLOAT) || (TYPE(around_y) == T_FIXNUM) ) 
     dbl_around_y = NUM2DBL(around_y);
   else
-    rb_raise(rb_eTypeError, MSG_AROUND_MUST_BE_FLOAT);
+    rb_raise(rb_eTypeError, MSG_AROUND_MUST_BE_NUMERIC);
 
-  if (TYPE(around_z) == T_FLOAT)
+  if ( (TYPE(around_z) == T_FLOAT) || (TYPE(around_z) == T_FIXNUM) )
     dbl_around_z = NUM2DBL(around_z);
   else
-    rb_raise(rb_eTypeError, MSG_AROUND_MUST_BE_FLOAT);
+    rb_raise(rb_eTypeError, MSG_AROUND_MUST_BE_NUMERIC);
 
   // Perform the actual rotation:
   double mA[3][3];
@@ -638,3 +658,54 @@ VALUE spatial_direction_cosine_matrix(int argc, VALUE *argv, VALUE self) {
   
   return rbMatrixRet;  
 }
+
+VALUE spatial_acceleration_to_roll_and_pitch(VALUE self) {
+  SpatialInfo *spatial_info = device_type_info(self);
+
+  // TODO: make sure our callers handle this properly:
+  if (!spatial_info->is_acceleration_known) return Qnil;
+
+  // We want a local copy to work with here:
+  double *acceleration = ALLOC_N(double, spatial_info->accelerometer_axes); 
+  memcpy(acceleration, spatial_info->acceleration, sizeof(double) * spatial_info->accelerometer_axes);
+
+  /*
+   * Roll Angle - about axis 0
+   *  tan(roll) = gy/gz
+   *  Use Atan2 so we have an output os (-180 - 180) degrees
+   */
+  double dbl_roll = atan2(acceleration[1], acceleration[2]);
+
+  /*
+   * Pitch Angle - about axis 1
+   *   tan(pitch) = -gx / (gy * sin(roll angle) * gz * cos(roll angle))
+   *   Pitch angle range is (-90 - 90) degrees
+   */
+  double dbl_pitch = atan(-1.0 * acceleration[0] / (acceleration[1] * sin(dbl_roll) + acceleration[2] * cos(dbl_roll)));
+
+  xfree(acceleration);
+
+  // Construct a splat-able return of roll and pitch:
+  VALUE aryRet = rb_ary_new2(2);
+
+  rb_ary_store(aryRet, 0, rb_float_new(dbl_roll));
+  rb_ary_store(aryRet, 1, rb_float_new(dbl_pitch));
+
+  return aryRet;
+}
+
+VALUE spatial_acceleration_to_euler(VALUE self) {
+  VALUE aryRollPitch = rb_funcall(self, rb_intern("acceleration_to_roll_and_pitch"), 0);
+
+  VALUE roll = rb_ary_shift(aryRollPitch);
+  VALUE pitch = rb_ary_shift(aryRollPitch);
+  
+  VALUE aryRet = rb_ary_new2(3);
+
+  rb_ary_store(aryRet, 0, rb_float_new(NUM2DBL(roll) * -1.00 + M_PI_2));
+  rb_ary_store(aryRet, 1, rb_float_new(0.0));
+  rb_ary_store(aryRet, 2, pitch);
+
+  return aryRet;
+}
+

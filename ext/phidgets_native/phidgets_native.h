@@ -281,8 +281,13 @@ VALUE spatial_data_rate_set(VALUE self, VALUE data_rate);
 VALUE spatial_data_rate_get(VALUE self);
 
 VALUE spatial_direction_cosine_matrix(int argc, VALUE *argv, VALUE self);
-VALUE spatial_acceleration_to_roll_and_pitch(VALUE self);
-VALUE spatial_acceleration_to_euler(VALUE self);
+VALUE spatial_accelerometer_to_roll_and_pitch(VALUE self);
+VALUE spatial_accelerometer_to_euler(VALUE self);
+VALUE spatial_accelerometer_to_dcm(VALUE self);
+VALUE spatial_gravity_to_roll_and_pitch(VALUE self);
+VALUE spatial_compass_bearing(VALUE self);
+VALUE spatial_compass_bearing_to_euler(VALUE self);
+VALUE spatial_compass_bearing_to_dcm(VALUE self);
 
 // PhidgetsNative::InterfaceKit
 void interfacekit_on_free(void *type_info);

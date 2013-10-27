@@ -332,23 +332,82 @@ void Init_phidgets_native_spatial(VALUE m_Phidget) {
 
   /*
    * call-seq:
-   *   acceleration_to_roll_and_pitch -> Array
+   *   accelerometer_to_roll_and_pitch -> Array
    * This private method is used internally to return an array whose first double 
    * contains the roll and whose second contains the pitch component of the 
    * acceleration. Values are expressed in radians.
    */
-  rb_define_private_method(c_Spatial, "acceleration_to_roll_and_pitch", spatial_acceleration_to_roll_and_pitch, 0);
+  rb_define_private_method(c_Spatial, "accelerometer_to_roll_and_pitch", spatial_accelerometer_to_roll_and_pitch, 0);
 
   /*
-   * Document-method: acceleration_to_euler
    * call-seq:
-   *   acceleration_to_euler -> Array
+   *   gravity_to_roll_and_pitch -> Array
+   * This private method is used to return an array whose first double 
+   * contains the roll and whose second contains the pitch component of gravity.
+   * Currently, this method merely calls and returns the accelerometer_to_roll_and_pitch
+   * method. Feel free to override this method with your own, for more accurate
+   * compass results. Values are expressed in radians.
+   */
+  rb_define_private_method(c_Spatial, "gravity_to_roll_and_pitch", spatial_gravity_to_roll_and_pitch, 0);
+
+  /*
+   * Document-method: accelerometer_to_euler
+   * call-seq:
+   *   accelerometer_to_euler -> Array
    *
    * This method returns a three element array of euler angles (yaw, roll, pitch)
    * representing the vector of acceleration, as currently reflected by the 
    * spatial sensor.
    */
-  rb_define_method(c_Spatial, "acceleration_to_euler", spatial_acceleration_to_euler, 0);
+  rb_define_method(c_Spatial, "accelerometer_to_euler", spatial_accelerometer_to_euler, 0);
+
+  /*
+   * Document-method: compass_bearing
+   * call-seq:
+   *   compass_bearing -> Float
+   *
+   * This method returns a float representing the compass' bearing, perpendicular to
+   * the ground plane, in radians. A radian of 'pi' is where the usb cable plugs in,
+   * and a radian of 0 is the opposite end (front) of the device. Note that this 
+   * method returns the 'magnetic' North, and not 'true' North. Also note that 
+   * accuracy is highly determined by the private method 'gravity_to_roll_and_pitch'.
+   * Currently, gravity is merely assumed to be the output of the 
+   * accelerometer_to_roll_and_pitch method. Feel free to extend the Spatial class
+   * and override the gravity_to_roll_and_pitch method, if you feel you have 
+   * a better way to determine gravity. Your override's return will be used 
+   * automatically by this method, once defined.
+   */
+  rb_define_method(c_Spatial, "compass_bearing", spatial_compass_bearing, 0);
+
+  /*
+   * Document-method: compass_bearing_to_euler
+   * call-seq:
+   *   compass_bearing_to_euler -> Float
+   *
+   * Probably this isn't too useful, but it returns a three element array, of which
+   * the third element is the compass_bearing.
+   */
+  rb_define_method(c_Spatial, "compass_bearing_to_euler", spatial_compass_bearing_to_euler, 0);
+
+  /*
+   * Document-method: accelerometer_to_dcm
+   * call-seq:
+   *   accelerometer_to_dcm -> Matrix
+   *
+   * This method returns a 3x3 Matrix containing a direction cosine Matrix which
+   * represents the rotation of the current accelerometer value.
+   */
+  rb_define_method(c_Spatial, "accelerometer_to_dcm", spatial_accelerometer_to_dcm, 0);
+
+  /*
+   * Document-method: compass_bearing_to_dcm
+   * call-seq:
+   *   compass_bearing_to_dcm -> Matrix
+   *
+   * This method returns a 3x3 Matrix containing a direction cosine Matrix which
+   * represents the rotation of the current compass_bearing value.
+   */
+  rb_define_method(c_Spatial, "compass_bearing_to_dcm", spatial_compass_bearing_to_dcm, 0);
 }
 
 VALUE spatial_initialize(VALUE self, VALUE serial) {
@@ -659,10 +718,9 @@ VALUE spatial_direction_cosine_matrix(int argc, VALUE *argv, VALUE self) {
   return rbMatrixRet;  
 }
 
-VALUE spatial_acceleration_to_roll_and_pitch(VALUE self) {
+VALUE spatial_accelerometer_to_roll_and_pitch(VALUE self) {
   SpatialInfo *spatial_info = device_type_info(self);
 
-  // TODO: make sure our callers handle this properly:
   if (!spatial_info->is_acceleration_known) return Qnil;
 
   // We want a local copy to work with here:
@@ -694,8 +752,14 @@ VALUE spatial_acceleration_to_roll_and_pitch(VALUE self) {
   return aryRet;
 }
 
-VALUE spatial_acceleration_to_euler(VALUE self) {
-  VALUE aryRollPitch = rb_funcall(self, rb_intern("acceleration_to_roll_and_pitch"), 0);
+VALUE spatial_gravity_to_roll_and_pitch(VALUE self) {
+  VALUE aryRollPitch = rb_funcall(self, rb_intern("accelerometer_to_roll_and_pitch"), 0);
+
+  return aryRollPitch;
+}
+
+VALUE spatial_accelerometer_to_euler(VALUE self) {
+  VALUE aryRollPitch = rb_funcall(self, rb_intern("accelerometer_to_roll_and_pitch"), 0);
 
   VALUE roll = rb_ary_shift(aryRollPitch);
   VALUE pitch = rb_ary_shift(aryRollPitch);
@@ -709,3 +773,87 @@ VALUE spatial_acceleration_to_euler(VALUE self) {
   return aryRet;
 }
 
+VALUE spatial_compass_bearing(VALUE self) {
+  // Get the Compass Values:
+  VALUE aryCompass = rb_funcall(self, rb_intern("compass"), 0);
+
+  if ( (TYPE(aryCompass) == T_NIL) || (RARRAY_LEN(aryCompass) != 3) )
+    return Qnil;
+  
+  double dbl_comp_x = NUM2DBL(rb_ary_shift(aryCompass));
+  double dbl_comp_y = NUM2DBL(rb_ary_shift(aryCompass));
+  double dbl_comp_z = NUM2DBL(rb_ary_shift(aryCompass));
+
+  // Get the Acceleration Values (All we really need here is 'z'):
+  VALUE aryAccel = rb_funcall(self, rb_intern("accelerometer"), 0);
+
+  if ( (TYPE(aryAccel) == T_NIL) || (RARRAY_LEN(aryAccel) != 3) )
+    return Qnil;
+
+  double dbl_accel_x = NUM2DBL(rb_ary_shift(aryAccel));
+  double dbl_accel_y = NUM2DBL(rb_ary_shift(aryAccel));
+  double dbl_accel_z = NUM2DBL(rb_ary_shift(aryAccel));
+
+  // Get the Gravity Vector:
+  VALUE aryGrvRollPitch = rb_funcall(self, rb_intern("gravity_to_roll_and_pitch"), 0);
+
+  double dbl_grv_roll = NUM2DBL(rb_ary_shift(aryGrvRollPitch));
+  double dbl_grv_pitch = NUM2DBL(rb_ary_shift(aryGrvRollPitch));
+
+  /*
+   * Yaw Angle - about axis 2
+   *   tan(yaw) = (mz * sin(roll) – my * cos(roll)) / 
+   *              (mx * cos(pitch) + my * sin(pitch) * sin(roll) + mz * sin(pitch) * cos(roll))
+   *   Use Atan2 to get our range in (-180 - 180)
+   *
+   *   Yaw angle == 0 degrees when axis 0 is pointing at magnetic north
+   */
+  double dbl_yaw = atan2( (dbl_comp_z * sin(dbl_grv_roll)) - (dbl_comp_y * cos(dbl_grv_roll)),
+     (dbl_comp_x * cos(dbl_grv_pitch)) + 
+     (dbl_comp_y * sin(dbl_grv_pitch) * sin(dbl_grv_roll)) + 
+     (dbl_comp_z * sin(dbl_grv_pitch) * cos(dbl_grv_roll)) );
+
+  // And we're done:
+  return rb_float_new( (dbl_accel_z < 0) ? ( dbl_yaw - M_PI_2 ) : ( dbl_yaw - M_PI * 1.5 ) );
+}
+
+VALUE spatial_compass_bearing_to_euler(VALUE self) {
+  VALUE compass_bearing = rb_funcall(self, rb_intern("compass_bearing"), 0);
+
+  if (TYPE(compass_bearing) == T_NIL)
+    return Qnil;
+  
+  VALUE aryRet = rb_ary_new2(3);
+
+  rb_ary_store(aryRet, 0, rb_float_new(0.0));
+  rb_ary_store(aryRet, 1, rb_float_new(0.0));
+  rb_ary_store(aryRet, 2, compass_bearing);
+
+  return aryRet;
+}
+
+VALUE spatial_accelerometer_to_dcm(VALUE self) {
+  VALUE aryAccelEu = rb_funcall(self, rb_intern("accelerometer_to_euler"), 0);
+
+  if ( (TYPE(aryAccelEu) == T_NIL) || (RARRAY_LEN(aryAccelEu) != 3) )
+    return Qnil;
+
+  VALUE angles[3];
+  for(unsigned int i=0; i<3; i++)
+    angles[i] = rb_ary_shift(aryAccelEu);
+
+  return rb_funcall(self, rb_intern("direction_cosine_matrix"), 3, angles[0], angles[1], angles[2]);
+}
+
+VALUE spatial_compass_bearing_to_dcm(VALUE self) {
+  VALUE aryCompassEu = rb_funcall(self, rb_intern("compass_bearing_to_euler"), 0);
+
+  if ( (TYPE(aryCompassEu) == T_NIL) || (RARRAY_LEN(aryCompassEu) != 3) )
+    return Qnil;
+
+  VALUE angles[3];
+  for(unsigned int i=0; i<3; i++)
+    angles[i] = rb_ary_shift(aryCompassEu);
+
+  return rb_funcall(self, rb_intern("direction_cosine_matrix"), 3, angles[0], angles[1], angles[2]);
+}

@@ -39,6 +39,9 @@ describe PhidgetsNative::Spatial do
       ((0..2).collect{|i| rand range }+[orders[rand(orders.length)]]).flatten.compact
     }
 
+    # This is a special case, might as well test it:
+    rotations << [0,0,0]
+
     rotations.each do |rotation|
       spatial.instance_eval{ direction_cosine_matrix(*rotation) }.should eq(
         reference_direction_cosine_matrix(*rotation))

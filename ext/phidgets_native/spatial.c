@@ -1,5 +1,7 @@
 #include "phidgets_native.h"
 
+const char DEFAULT_IN_ORDER_STR[] = "xyz";
+
 void spatial_on_free(void *type_info) {
   SpatialInfo *spatial_info = type_info;
   if (spatial_info->acceleration)
@@ -34,6 +36,57 @@ int spatial_set_compass_correction_by_array(CPhidgetSpatialHandle phid, double *
     cc[10], cc[11], cc[12] ));
 }
 
+/*
+ * This method will rotate the double[3][3] mRet around the axial rotations, in order of in_order )
+ */
+int euler_to_3x3dcm(double *mRet, double around_x, double around_y, double around_z, const char *in_order) {
+  double mA[3][3];
+  double mB[3][3];
+  double mAccum[3][3]; 
+
+  memcpy(&mAccum, mRet, sizeof(mAccum));
+
+  unsigned long in_order_length = strlen((in_order) ? in_order : DEFAULT_IN_ORDER_STR); 
+
+  for (unsigned long i = 0; i < in_order_length; i++) {
+    switch (tolower((in_order) ? in_order[i] : DEFAULT_IN_ORDER_STR[i])) {
+      case 'x':
+        mB[0][0] = 1.0; mB[0][1] = 0.0;           mB[0][2] = 0.0;
+        mB[1][0] = 0.0; mB[1][1] = cos(around_x); mB[1][2] = sin(around_x) * (-1.0);
+        mB[2][0] = 0.0; mB[2][1] = sin(around_x); mB[2][2] = cos(around_x);
+        break;
+      case 'y':
+        mB[0][0] = cos(around_y);          mB[0][1] = 0.0; mB[0][2] = sin(around_y);
+        mB[1][0] = 0.0;                    mB[1][1] = 1.0; mB[1][2] = 0.0;
+        mB[2][0] = sin(around_y) * (-1.0); mB[2][1] = 0.0; mB[2][2] = cos(around_y);
+        break;
+      case 'z':
+        mB[0][0] = cos(around_z); mB[0][1] = sin(around_z) * (-1.0); mB[0][2] = 0.0;
+        mB[1][0] = sin(around_z); mB[1][1] = cos(around_z);          mB[1][2] = 0.0;
+        mB[2][0] = 0.0;           mB[2][1] = 0.0;                    mB[2][2] = 1.0;
+        break;
+      default:
+        // Fatal Error - return without setting mRet
+        return 1;
+        break;
+    }
+
+    // Accumulate into ret, via multiplication
+    memcpy(&mA, &mAccum, sizeof(mAccum));
+    memset(&mAccum, 0, sizeof(mAccum));
+ 
+    for (unsigned int i = 0; i < 3; i++)
+      for (unsigned int j = 0; j < 3; j++)
+        for (unsigned int k = 0; k < 3; k++)
+          mAccum[i][j] += mA[i][k] * mB[k][j];
+  }
+  
+  // Success:
+  memcpy(mRet, &mAccum, sizeof(mAccum));
+
+  return 0;
+}
+
 int CCONV spatial_on_attach(CPhidgetHandle phid, void *userptr) {
   PhidgetInfo *info = userptr;
   SpatialInfo *spatial_info = info->type_info;
@@ -66,6 +119,12 @@ int CCONV spatial_on_attach(CPhidgetHandle phid, void *userptr) {
   spatial_info->gyroscope = ALLOC_N(double, spatial_info->gyro_axes); 
   spatial_info->gyroscope_min = ALLOC_N(double, spatial_info->gyro_axes); 
   spatial_info->gyroscope_max = ALLOC_N(double, spatial_info->gyro_axes); 
+
+  // Initialize the gyro dcm:
+  if (spatial_info->gyro_axes == 3) {
+    double identity3x3[3][3] = {{1.0,0.0,0.0}, {0.0,1.0,0.0}, {0.0,0.0,1.0}}; 
+    memcpy(&spatial_info->gyroscope_dcm, &identity3x3, sizeof(identity3x3));
+  }
 
   // Accelerometer
   for(int i=0; i < spatial_info->accelerometer_axes; i++) {
@@ -104,6 +163,7 @@ int CCONV spatial_on_detach(CPhidgetHandle phidget, void *userptr) {
   memset(spatial_info->acceleration, 0, sizeof(double) * spatial_info->accelerometer_axes);
   memset(spatial_info->gyroscope, 0, sizeof(double) * spatial_info->gyro_axes);
   memset(spatial_info->compass, 0, sizeof(double) * spatial_info->compass_axes);
+  memset(&spatial_info->gyroscope_dcm, 0, sizeof(spatial_info->gyroscope_dcm));
 
   spatial_info->last_microsecond = 0;
   spatial_info->is_acceleration_known = false;
@@ -153,8 +213,16 @@ int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidget
     if (spatial_info->last_microsecond > 0) {
       double timechange = timestamp - spatial_info->last_microsecond;
 
+      // TODO: Not sure that this is needed any more:
       for(int j=0; j < spatial_info->gyro_axes; j++)
         spatial_info->gyroscope[j] += data[i]->angularRate[j] * timechange;
+
+      if (spatial_info->gyro_axes == 3)
+        euler_to_3x3dcm((double *) &spatial_info->gyroscope_dcm, 
+          (data[i]->angularRate[0] * timechange)/360.0*M_PI*2.0,
+          (data[i]->angularRate[1] * timechange)/360.0*M_PI*2.0,
+          (data[i]->angularRate[2] * timechange)/360.0*M_PI*2.0,
+          NULL);
     }
 
     spatial_info->is_gyroscope_known = true;

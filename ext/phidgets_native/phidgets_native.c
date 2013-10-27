@@ -44,6 +44,29 @@ VALUE phidgetbool_array_to_rb(int *bool_array, int length) {
   return rb_ary;
 }
 
+/* This converts a 3x3 array of doubles into a ruby matrix, or into
+ * nil for the case of an invalid dbl_array
+ */
+VALUE double3x3_to_matrix_rb(double m3x3[][3]) {
+  if (!m3x3) return Qnil;
+
+  // To compose a Matrix, we need a 3x3 array of floats:
+  VALUE aryRet = rb_ary_new2(3);
+  for (unsigned int i=0; i < 3; i++) {
+    VALUE arRow = rb_ary_new2(3);
+
+    for (unsigned int j=0; j < 3; j++)
+      rb_ary_store(arRow, j, rb_float_new(m3x3[i][j]));
+
+    rb_ary_store(aryRet, i, arRow);
+  }
+
+  VALUE c_Matrix = rb_const_get( rb_cObject, rb_intern("Matrix") );
+  VALUE rbMatrixRet = rb_funcall(c_Matrix, rb_intern("rows"), 2, aryRet, Qfalse);     
+  
+  return rbMatrixRet;  
+}
+
 // The name is ambiguous, but the main purpose here is dry things out a bit
 // and let us do a better job of reporting errors to ruby
 int ensure(int result) {

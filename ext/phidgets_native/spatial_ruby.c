@@ -1,5 +1,4 @@
 #include "phidgets_native.h"
-#include <ctype.h>
 
 const char MSG_COMPASS_CORRECTION_NOT_ARRAY[] = "compass correction must be a 13 element array";
 const char MSG_COMPASS_CORRECTION_MUST_BE_FLOAT[] = "compass correction elements must be float or fixnum";
@@ -8,7 +7,6 @@ const char MSG_AROUND_MUST_BE_NUMERIC[] = "rotation angles must be fixnums or fl
 const char MSG_IN_ORDER_MUST_BE_STRING[] = "rotation order must be a string";
 const char MSG_INVALID_ROTATION_AXIS[] = "invalid rotation axis in rotation order, must be x, y, or z";
 
-const char DEFAULT_IN_ORDER_STR[] = "xyz";
 /*
  * Document-class: PhidgetsNative::Spatial < PhidgetsNative::Device
  *
@@ -404,10 +402,20 @@ void Init_phidgets_native_spatial(VALUE m_Phidget) {
    * call-seq:
    *   compass_bearing_to_dcm -> Matrix
    *
-   * This method returns a 3x3 Matrix containing a direction cosine Matrix which
-   * represents the rotation of the current compass_bearing value.
+   * This method returns a 3x3 direction cosine Matrix which represents the 
+   * rotation of the current compass_bearing vector in 3d space.
    */
   rb_define_method(c_Spatial, "compass_bearing_to_dcm", spatial_compass_bearing_to_dcm, 0);
+
+  /*
+   * Document-method: gyro_to_dcm
+   * call-seq:
+   *   gyro_to_dcm -> Matrix
+   *
+   * This method returns a 3x3 direction cosine Matrix which represents the 
+   * rotation of the current gyroscope vector.
+   */
+  rb_define_method(c_Spatial, "gyro_to_dcm", spatial_gyro_to_dcm, 0);
 }
 
 VALUE spatial_initialize(VALUE self, VALUE serial) {
@@ -663,59 +671,14 @@ VALUE spatial_direction_cosine_matrix(int argc, VALUE *argv, VALUE self) {
     rb_raise(rb_eTypeError, MSG_AROUND_MUST_BE_NUMERIC);
 
   // Perform the actual rotation:
-  double mA[3][3];
-  double mB[3][3];
-  double mRet[3][3] = { {1.0,0.0,0.0}, {0.0,1.0,0.0}, {0.0,0.0,1.0}}; 
+  double mRetDcm[3][3] = {{1.0,0.0,0.0}, {0.0,1.0,0.0}, {0.0,0.0,1.0}};
 
-  unsigned long in_order_length = strlen((in_order_str) ? in_order_str : DEFAULT_IN_ORDER_STR); 
+  if (euler_to_3x3dcm((double *) &mRetDcm, dbl_around_x, dbl_around_y, 
+    dbl_around_z, (in_order_str) ? in_order_str : NULL) != 0)
+    rb_raise(rb_eTypeError, MSG_INVALID_ROTATION_AXIS);
 
-  for (unsigned long i = 0; i < in_order_length; i++) {
-    switch (tolower((in_order_str) ? in_order_str[i] : DEFAULT_IN_ORDER_STR[i])) {
-      case 'x':
-        mB[0][0] = 1.0; mB[0][1] = 0.0;               mB[0][2] = 0.0;
-        mB[1][0] = 0.0; mB[1][1] = cos(dbl_around_x); mB[1][2] = sin(dbl_around_x) * (-1.0);
-        mB[2][0] = 0.0; mB[2][1] = sin(dbl_around_x); mB[2][2] = cos(dbl_around_x);
-        break;
-      case 'y':
-        mB[0][0] = cos(dbl_around_y);          mB[0][1] = 0.0; mB[0][2] = sin(dbl_around_y);
-        mB[1][0] = 0.0;                        mB[1][1] = 1.0; mB[1][2] = 0.0;
-        mB[2][0] = sin(dbl_around_y) * (-1.0); mB[2][1] = 0.0; mB[2][2] = cos(dbl_around_y);
-        break;
-      case 'z':
-        mB[0][0] = cos(dbl_around_z); mB[0][1] = sin(dbl_around_z) * (-1.0); mB[0][2] = 0.0;
-        mB[1][0] = sin(dbl_around_z); mB[1][1] = cos(dbl_around_z);          mB[1][2] = 0.0;
-        mB[2][0] = 0.0;               mB[2][1] = 0.0;                        mB[2][2] = 1.0;
-        break;
-      default:
-        rb_raise(rb_eTypeError, MSG_INVALID_ROTATION_AXIS);
-        break;
-    }
-
-    // Accumulate into ret, via multiplication
-    memcpy(&mA, &mRet, sizeof(mRet));
-    memset(&mRet, 0, sizeof(mRet));
- 
-    for (unsigned int i = 0; i < 3; i++)
-      for (unsigned int j = 0; j < 3; j++)
-        for (unsigned int k = 0; k < 3; k++)
-          mRet[i][j] += mA[i][k] * mB[k][j];
-  }
-
-  // To compose a Matrix, we need a 3x3 array of floats:
-  VALUE aryRet = rb_ary_new2(3);
-  for (unsigned int i=0; i < 3; i++) {
-    VALUE arRow = rb_ary_new2(3);
-
-    for (unsigned int j=0; j < 3; j++)
-      rb_ary_store(arRow, j, rb_float_new(mRet[i][j]));
-
-    rb_ary_store(aryRet, i, arRow);
-  }
-
-  VALUE c_Matrix = rb_const_get( rb_cObject, rb_intern("Matrix") );
-  VALUE rbMatrixRet = rb_funcall(c_Matrix, rb_intern("rows"), 2, aryRet, Qfalse);     
-  
-  return rbMatrixRet;  
+  // Return our results:
+  return double3x3_to_matrix_rb((double (*)[3])&mRetDcm);
 }
 
 VALUE spatial_accelerometer_to_roll_and_pitch(VALUE self) {
@@ -856,4 +819,17 @@ VALUE spatial_compass_bearing_to_dcm(VALUE self) {
     angles[i] = rb_ary_shift(aryCompassEu);
 
   return rb_funcall(self, rb_intern("direction_cosine_matrix"), 3, angles[0], angles[1], angles[2]);
+}
+
+VALUE spatial_gyro_to_dcm(VALUE self) {
+  SpatialInfo *spatial_info = device_type_info(self);
+
+  if ( (!spatial_info->is_gyroscope_known) || (spatial_info->gyro_axes != 3) )
+    return Qnil;
+
+  double mRetDcm[3][3];
+  memcpy(&mRetDcm, &spatial_info->gyroscope_dcm, sizeof(mRetDcm));
+
+  // Return our results:
+  return double3x3_to_matrix_rb((double (*)[3])&mRetDcm);
 }

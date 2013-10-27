@@ -3,6 +3,7 @@
 #include <math.h>
 #include <time.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include <ruby.h>
 #include <phidget21.h>
@@ -90,6 +91,7 @@ typedef struct spatial_info {
 
   bool is_gyroscope_known;
   double *gyroscope;
+  double gyroscope_dcm[3][3];
 
   // This is used by the gyro:
   double last_microsecond;
@@ -212,6 +214,7 @@ VALUE double_array_to_rb(double *dbl_array, int length);
 VALUE int_array_to_rb(int *int_array, int length);
 VALUE int_array_zeronils_to_rb(int *int_array, int length);
 VALUE phidgetbool_array_to_rb(int *bool_array, int length);
+VALUE double3x3_to_matrix_rb(double m3x3[][3]);
 int ensure(int result);
 int report(int result);
 SampleRate *sample_create();
@@ -288,6 +291,8 @@ VALUE spatial_gravity_to_roll_and_pitch(VALUE self);
 VALUE spatial_compass_bearing(VALUE self);
 VALUE spatial_compass_bearing_to_euler(VALUE self);
 VALUE spatial_compass_bearing_to_dcm(VALUE self);
+VALUE spatial_gyro_to_dcm(VALUE self);
+int euler_to_3x3dcm(double *mRet, double around_x, double around_y, double around_z, const char *in_order);
 
 // PhidgetsNative::InterfaceKit
 void interfacekit_on_free(void *type_info);

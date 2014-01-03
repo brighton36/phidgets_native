@@ -41,11 +41,12 @@ phidgets_example_for( PhidgetsNative::Spatial, additional_attribs ) do |spatial|
     'Sample Rate', 
     '%-40s' % 'Accelerometer', 
     '%-40s' % 'Gyroscope',
-    '%-40s' % 'Compass'
+    '%-40s' % 'Compass', 
+    '%-40s' % 'OrientationQ', 
   ]).output(:header => (i == 0), :separator => false) do |columns|
     i+=1
     [ ['%d Hz' % spatial.sample_rate]+[ 
-      spatial.accelerometer, spatial.gyro, spatial.compass ].collect{ |axes|
+      spatial.accelerometer, spatial.gyro, spatial.compass, spatial.orientation_to_quaternion ].collect{ |axes|
       (axes.kind_of? Array) ? 
         '[%s]' % axes.collect{|a| '%0.6f' % a}.join(', ') : axes.inspect
     } ]

@@ -12,9 +12,19 @@
 // via a const.
 #define COMPASS_CORRECTION_LENGTH 13
 
+
 static double const MICROSECONDS_IN_SECOND = 1000000.0;
 static int const DEGREES_IN_CIRCLE = 360;
 static int const DEFAULT_SPATIAL_DATA_RATE = 16;
+
+// Proportional gain governs rate of convergence to accelerometer/magnetometer:
+static double const SPATIAL_AHRS_KP = 2.0;
+
+// Integral gain governs rate of convergence of gyroscope biases:
+static double const SPATIAL_AHRS_KI = 0.005;
+
+// Half the sample period:
+static double const SPATIAL_AHRS_HALFT = 1.0/DEFAULT_SPATIAL_DATA_RATE; // TODO: this should be relative to the user's data_rate
 
 // Make sure one of these is non-zero and the other is 0
 static int const DEFAULT_INTERFACEKIT_DATA_RATE = 8;
@@ -95,6 +105,14 @@ typedef struct spatial_info {
 
   // This is used by the gyro:
   double last_microsecond;
+
+  // scaled integral error:
+  float exInt;
+  float eyInt; 
+  float ezInt;	
+
+  // quaternion elements representing the estimated orientation
+  float orientation_q[4];
 } SpatialInfo;
 
 typedef struct gps_info {
@@ -255,6 +273,9 @@ int CCONV spatial_on_attach(CPhidgetHandle phid, void *userptr);
 int CCONV spatial_on_detach(CPhidgetHandle phid, void *userptr);
 int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidgetSpatial_SpatialEventDataHandle *data, int count);
 int spatial_set_compass_correction_by_array(CPhidgetSpatialHandle phid, double *correction);
+void spatial_ahrs_init(SpatialInfo *spatial_info);
+void spatial_ahrs_update(SpatialInfo *spatial_info, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
+
 VALUE spatial_initialize(VALUE self, VALUE serial);
 VALUE spatial_close(VALUE self);
 VALUE spatial_sample_rate(VALUE self);
@@ -292,6 +313,8 @@ VALUE spatial_compass_bearing(VALUE self);
 VALUE spatial_compass_bearing_to_euler(VALUE self);
 VALUE spatial_compass_bearing_to_dcm(VALUE self);
 VALUE spatial_gyro_to_dcm(VALUE self);
+VALUE spatial_orientation_to_quaternion(VALUE self);
+
 int euler_to_3x3dcm(double *mRet, double around_x, double around_y, double around_z, const char *in_order);
 
 // PhidgetsNative::InterfaceKit

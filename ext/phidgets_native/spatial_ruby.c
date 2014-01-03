@@ -416,6 +416,16 @@ void Init_phidgets_native_spatial(VALUE m_Phidget) {
    * rotation of the current gyroscope vector.
    */
   rb_define_method(c_Spatial, "gyro_to_dcm", spatial_gyro_to_dcm, 0);
+
+  /*
+   * Document-method: orientation_to_quaternion
+   * call-seq:
+   *   orientation_to_quaternion -> Array
+   *
+   * This method returns a 4 element array consisting of floats, which represent
+   * the estimated AHRS orientation of the phidget.
+   */
+  rb_define_method(c_Spatial, "orientation_to_quaternion", spatial_orientation_to_quaternion, 0);
 }
 
 VALUE spatial_initialize(VALUE self, VALUE serial) {
@@ -550,6 +560,7 @@ VALUE spatial_zero_gyro(VALUE self) {
 
   ensure(CPhidgetSpatial_zeroGyro((CPhidgetSpatialHandle) info->handle));
   memset(spatial_info->gyroscope, 0, sizeof(double) * spatial_info->gyro_axes);
+  spatial_ahrs_init(spatial_info);
 
   return Qnil;
 }
@@ -585,9 +596,11 @@ VALUE spatial_compass_correction_set(VALUE self, VALUE compass_correction) {
     }
 
     spatial_info->is_compass_correction_known = true; 
-    if (info->is_attached)
+    if (info->is_attached) {
       spatial_set_compass_correction_by_array( 
         (CPhidgetSpatialHandle)info->handle, spatial_info->compass_correction);
+      spatial_ahrs_init(spatial_info);
+    }
   }
 
   return compass_correction;
@@ -832,4 +845,28 @@ VALUE spatial_gyro_to_dcm(VALUE self) {
 
   // Return our results:
   return double3x3_to_matrix_rb((double (*)[3])&mRetDcm);
+}
+
+VALUE spatial_orientation_to_quaternion(VALUE self) {
+  SpatialInfo *spatial_info = device_type_info(self);
+
+  // NOTE: I'm reusing this conditional from the dcm test. I think we don't need
+  // to implement a separated is_orientation_known function as the two conditions
+  // are identical:
+  if ( (!spatial_info->is_gyroscope_known) || (spatial_info->gyro_axes != 3) )
+    return Qnil;
+
+  float fOrientationQ[4];
+  double dblOrientationQ[4];
+
+  // The library stores floats 
+  // TODO: Store doubles so that we don't have to cast....
+  memcpy(&fOrientationQ, &spatial_info->orientation_q, sizeof(fOrientationQ));
+
+  // Cast doubles
+  for(int i=0; i<4; i++)
+    dblOrientationQ[i] = (double) fOrientationQ[i];
+
+  // Return our results:
+  return double_array_to_rb((double *) &dblOrientationQ, 4);
 }

@@ -218,3 +218,12 @@ int sample_tick(SampleRate *sample_rate, CPhidget_Timestamp *ts) {
   return 0;
 }
 
+// There's a number of ways to implement this, at the moment, I'm more interested
+// in accuracy... so we use the close-to-optimal method with low cost from :
+//  http://pizer.wordpress.com/2008/10/12/fast-inverse-square-root 
+// as opposed to: 1.0f / sqrtf(x)
+float invSqrt(float x) {
+  unsigned int i = 0x5F1F1412 - (*(unsigned int*)&x >> 1);
+  float tmp = *(float*)&i;
+  return tmp * (1.69000231f - 0.714158168f * x * tmp * tmp);
+}

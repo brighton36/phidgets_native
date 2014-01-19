@@ -735,6 +735,11 @@ VALUE spatial_gravity_to_roll_and_pitch(VALUE self) {
 }
 
 VALUE spatial_accelerometer_to_euler(VALUE self) {
+  SpatialInfo *spatial_info = device_type_info(self);
+
+  if (!spatial_info->is_acceleration_known)
+    return Qnil;
+
   VALUE aryRollPitch = rb_funcall(self, rb_intern("accelerometer_to_roll_and_pitch"), 0);
 
   VALUE roll = rb_ary_shift(aryRollPitch);
@@ -859,8 +864,7 @@ VALUE spatial_orientation_to_quaternion(VALUE self) {
   float fOrientationQ[4];
   double dblOrientationQ[4];
 
-  // The library stores floats 
-  // TODO: Store doubles so that we don't have to cast....
+  // The Madgwick algorithem uses floats, and ruby wants doubles. Let's cast!
   memcpy(&fOrientationQ, &spatial_info->orientation_q, sizeof(fOrientationQ));
 
   // Cast doubles

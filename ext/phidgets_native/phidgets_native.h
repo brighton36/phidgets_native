@@ -12,19 +12,11 @@
 // via a const.
 #define COMPASS_CORRECTION_LENGTH 13
 
-
 static double const MICROSECONDS_IN_SECOND = 1000000.0;
 static int const DEGREES_IN_CIRCLE = 360;
 static int const DEFAULT_SPATIAL_DATA_RATE = 16;
 
-// Proportional gain governs rate of convergence to accelerometer/magnetometer:
-static double const SPATIAL_AHRS_KP = 2.0;
-
-// Integral gain governs rate of convergence of gyroscope biases:
-static double const SPATIAL_AHRS_KI = 0.005;
-
-// Half the sample period:
-static double const SPATIAL_AHRS_HALFT = 1.0/DEFAULT_SPATIAL_DATA_RATE; // TODO: this should be relative to the user's data_rate
+static float const SPATIAL_AHRS_BETA = 0.1f;	// 2 * proportional gain (Kp)
 
 // Make sure one of these is non-zero and the other is 0
 static int const DEFAULT_INTERFACEKIT_DATA_RATE = 8;
@@ -105,11 +97,6 @@ typedef struct spatial_info {
 
   // This is used by the gyro:
   double last_microsecond;
-
-  // scaled integral error:
-  float exInt;
-  float eyInt; 
-  float ezInt;	
 
   // quaternion elements representing the estimated orientation
   float orientation_q[4];
@@ -239,6 +226,7 @@ SampleRate *sample_create();
 int sample_free(SampleRate *sample_rate);
 int sample_zero(SampleRate *sample_rate);
 int sample_tick(SampleRate *sample_rate, CPhidget_Timestamp *ts);
+float invSqrt(float x);
 
 // Phidget Module
 VALUE phidget_enable_logging(int argc, VALUE *argv, VALUE class);
@@ -275,6 +263,7 @@ int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidget
 int spatial_set_compass_correction_by_array(CPhidgetSpatialHandle phid, double *correction);
 void spatial_ahrs_init(SpatialInfo *spatial_info);
 void spatial_ahrs_update(SpatialInfo *spatial_info, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
+void spatial_ahrs_update_imu(SpatialInfo *spatial_info, float gx, float gy, float gz, float ax, float ay, float az);
 
 VALUE spatial_initialize(VALUE self, VALUE serial);
 VALUE spatial_close(VALUE self);

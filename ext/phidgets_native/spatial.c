@@ -208,77 +208,64 @@ int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidget
       spatial_info->is_compass_known = true;
     } 
 
-    // Gyros get handled slightly different:
-    // NOTE: Other people may have a better way to do this, but this is the method
-    // I grabbed from the phidget sample. Maybe I should report these in radians...
+    // Gyro Time! these get handled slightly different...
     double timestamp = data[i]->timestamp.seconds + data[i]->timestamp.microseconds/MICROSECONDS_IN_SECOND;
 
-    if (spatial_info->last_microsecond > 0) {
-      double timechange = timestamp - spatial_info->last_microsecond;
-
-      // TODO: Not sure that this is needed any more:
-      for(int j=0; j < spatial_info->gyro_axes; j++)
-        spatial_info->gyroscope[j] += data[i]->angularRate[j] * timechange;
-
-      if (spatial_info->gyro_axes == 3)
-        euler_to_3x3dcm((double *) &spatial_info->gyroscope_dcm, 
-          (data[i]->angularRate[0] * timechange)*360.0*M_PI*2.0,
-          (data[i]->angularRate[1] * timechange)/360.0*M_PI*2.0,
-          (data[i]->angularRate[2] * timechange)/360.0*M_PI*2.0,
-          NULL);
-    }
+    double timechange = (spatial_info->last_microsecond > 0) ? 
+      timestamp - spatial_info->last_microsecond : 0;
+    
+    // This is kind of superceeded by the orientation_ functions, but I'm 
+    // leaving it in for posterity:
+    for(int j=0; j < spatial_info->gyro_axes; j++)
+      spatial_info->gyroscope[j] += data[i]->angularRate[j] * timechange;
 
     spatial_info->is_gyroscope_known = true;
+
+    // If we're dealing with 3 dimensional sensors, we can calculate orientation:
+    if (spatial_info->gyro_axes == 3) {
+      // This is a shortcut to keep things DRY below:
+      double angular_rate_in_rad[3];
+      for(int j=0; j < 3; j++)
+        angular_rate_in_rad[j] = data[i]->angularRate[j] * M_PI/180;
+
+      euler_to_3x3dcm((double *) &spatial_info->gyroscope_dcm, 
+        angular_rate_in_rad[0] * timechange,
+        angular_rate_in_rad[1] * timechange,
+        angular_rate_in_rad[2] * timechange,
+        NULL);
+
+      // Madgwick Orientation time - Update the ahrs: 
+      float gx = (float) angular_rate_in_rad[0];
+      float gy = (float) angular_rate_in_rad[1];
+      float gz = (float) angular_rate_in_rad[2];
+
+      float ax = (float) data[i]->acceleration[0];
+      float ay = (float) data[i]->acceleration[1];
+      float az = (float) data[i]->acceleration[2];
+
+      if (spatial_info->is_compass_known) 
+        // We have enough info for a MARG update:
+        spatial_ahrs_update(spatial_info, gx, gy, gz, ax, ay, az,
+          (float) data[i]->magneticField[0], 
+          (float) data[i]->magneticField[1], 
+          (float) data[i]->magneticField[2]);
+      else
+        // We only have enough info for a IMU update:
+        spatial_ahrs_update_imu(spatial_info, gx, gy, gz, ax, ay, az);
+    }
 
     // We'll need this on the next go around:
     spatial_info->last_microsecond = timestamp;
 
-    // TODO: this only works for three-axis systems. Put a conditional in here?
-    // TODO: should we translate these values into their respective vectors first?
-    // Update the ahrs
-    spatial_ahrs_update(spatial_info, 
-        // TODO: Dry out the deg to rad conversions:
-        (float) (data[i]->angularRate[0]*M_PI/180), 
-        (float) (data[i]->angularRate[1]*M_PI/180),
-        (float) (data[i]->angularRate[2]*M_PI/180),
-      (float) data[i]->acceleration[0],  (float) data[i]->acceleration[1],  (float) data[i]->acceleration[2], 
-      (float) data[i]->magneticField[0], (float) data[i]->magneticField[1], (float) data[i]->magneticField[2]);
   }
 
   return 0;
 }
 
-// NOTE: This was largely copied from Madgwick's Quaternion implementation of the 'DCM filter' 
+// NOTE: The spatial_ahrs_* functions were largely copied from Madgwick's 
+// Quaternion implementation of the 'DCM filter' 
 // https://code.google.com/p/imumargalgorithm30042010sohm/
-
-// AHRS.c
-// S.O.H. Madgwick
-// 25th August 2010
-
-// Description:
-//
-// Quaternion implementation of the 'DCM filter' [Mayhony et al].  Incorporates the magnetic distortion
-// compensation algorithms from my filter [Madgwick] which eliminates the need for a reference
-// direction of flux (bx bz) to be predefined and limits the effect of magnetic distortions to yaw
-// axis only.
-//
-// User must define 'SPATIAL_AHRS_HALFT' as the (sample period / 2), and the filter gains 'SPATIAL_AHRS_KP' and 'SPATIAL_AHRS_KI'.
-//
-// Global variables 'q0', 'q1', 'q2', 'q3' are the quaternion elements representing the estimated
-// orientation.  See my report for an overview of the use of quaternions in this application.
-//
-// User must call 'AHRSupdate()' every sample period and parse calibrated gyroscope ('gx', 'gy', 'gz'),
-// accelerometer ('ax', 'ay', 'ay') and magnetometer ('mx', 'my', 'mz') data.  Gyroscope units are
-// radians/second, accelerometer and magnetometer units are irrelevant as the vector is normalised.
-//
-//=====================================================================================================
-
 void spatial_ahrs_init(SpatialInfo *spatial_info) {
-  // Scaled integral error
-  spatial_info->exInt = 0.0;
-  spatial_info->eyInt = 0.0; 
-  spatial_info->ezInt = 0.0;	
-
   // Quaternion elements representing the estimated orientation
   spatial_info->orientation_q[0] = 1.0;
   spatial_info->orientation_q[1] = 0.0;
@@ -293,13 +280,112 @@ void spatial_ahrs_update(SpatialInfo *spatial_info,
   float ax, float ay, float az, 
   float mx, float my, float mz) {
 
-  // TODO: figure out why data rate setting kills this to Nan-land
-  // printf("Tick %lf, %lf, %lf, %lf\n", spatial_info->orientation_q[0], spatial_info->orientation_q[1], spatial_info->orientation_q[2], spatial_info->orientation_q[3]);
+  // Just a shorthand meant to make this a bit easier to work with, and transact
+  // commits (eventually)
+  float q0 = spatial_info->orientation_q[0];
+  float q1 = spatial_info->orientation_q[1];
+  float q2 = spatial_info->orientation_q[2];
+  float q3 = spatial_info->orientation_q[3];
 
-	float norm;
-	float hx, hy, hz, bx, bz;
-	float vx, vy, vz, wx, wy, wz;
-	float ex, ey, ez;
+  float sample_rate_in_hz = 1000.0f / spatial_info->data_rate;
+
+	float recipNorm;
+	float s0, s1, s2, s3;
+	float qDot1, qDot2, qDot3, qDot4;
+	float hx, hy;
+	float _2q0mx, _2q0my, _2q0mz, _2q1mx, _2bx, _2bz, _4bx, _4bz, _2q0, _2q1, _2q2, _2q3, _2q0q2, _2q2q3, q0q0, q0q1, q0q2, q0q3, q1q1, q1q2, q1q3, q2q2, q2q3, q3q3;
+
+	// Rate of change of quaternion from gyroscope
+	qDot1 = 0.5f * (-q1 * gx - q2 * gy - q3 * gz);
+	qDot2 = 0.5f * (q0 * gx + q2 * gz - q3 * gy);
+	qDot3 = 0.5f * (q0 * gy - q1 * gz + q3 * gx);
+	qDot4 = 0.5f * (q0 * gz + q1 * gy - q2 * gx);
+
+	// Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
+	if(!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
+
+		// Normalise accelerometer measurement
+		recipNorm = invSqrt(ax * ax + ay * ay + az * az);
+		ax *= recipNorm;
+		ay *= recipNorm;
+		az *= recipNorm;   
+
+		// Normalise magnetometer measurement
+		recipNorm = invSqrt(mx * mx + my * my + mz * mz);
+		mx *= recipNorm;
+		my *= recipNorm;
+		mz *= recipNorm;
+
+		// Auxiliary variables to avoid repeated arithmetic
+		_2q0mx = 2.0f * q0 * mx;
+		_2q0my = 2.0f * q0 * my;
+		_2q0mz = 2.0f * q0 * mz;
+		_2q1mx = 2.0f * q1 * mx;
+		_2q0 = 2.0f * q0;
+		_2q1 = 2.0f * q1;
+		_2q2 = 2.0f * q2;
+		_2q3 = 2.0f * q3;
+		_2q0q2 = 2.0f * q0 * q2;
+		_2q2q3 = 2.0f * q2 * q3;
+		q0q0 = q0 * q0;
+		q0q1 = q0 * q1;
+		q0q2 = q0 * q2;
+		q0q3 = q0 * q3;
+		q1q1 = q1 * q1;
+		q1q2 = q1 * q2;
+		q1q3 = q1 * q3;
+		q2q2 = q2 * q2;
+		q2q3 = q2 * q3;
+		q3q3 = q3 * q3;
+
+		// Reference direction of Earth's magnetic field
+		hx = mx * q0q0 - _2q0my * q3 + _2q0mz * q2 + mx * q1q1 + _2q1 * my * q2 + _2q1 * mz * q3 - mx * q2q2 - mx * q3q3;
+		hy = _2q0mx * q3 + my * q0q0 - _2q0mz * q1 + _2q1mx * q2 - my * q1q1 + my * q2q2 + _2q2 * mz * q3 - my * q3q3;
+		_2bx = sqrt(hx * hx + hy * hy);
+		_2bz = -_2q0mx * q2 + _2q0my * q1 + mz * q0q0 + _2q1mx * q3 - mz * q1q1 + _2q2 * my * q3 - mz * q2q2 + mz * q3q3;
+		_4bx = 2.0f * _2bx;
+		_4bz = 2.0f * _2bz;
+
+		// Gradient decent algorithm corrective step
+		s0 = -_2q2 * (2.0f * q1q3 - _2q0q2 - ax) + _2q1 * (2.0f * q0q1 + _2q2q3 - ay) - _2bz * q2 * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - mx) + (-_2bx * q3 + _2bz * q1) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - my) + _2bx * q2 * (_2bx * (q0q2 + q1q3) + _2bz * (0.5f - q1q1 - q2q2) - mz);
+		s1 = _2q3 * (2.0f * q1q3 - _2q0q2 - ax) + _2q0 * (2.0f * q0q1 + _2q2q3 - ay) - 4.0f * q1 * (1 - 2.0f * q1q1 - 2.0f * q2q2 - az) + _2bz * q3 * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - mx) + (_2bx * q2 + _2bz * q0) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - my) + (_2bx * q3 - _4bz * q1) * (_2bx * (q0q2 + q1q3) + _2bz * (0.5f - q1q1 - q2q2) - mz);
+		s2 = -_2q0 * (2.0f * q1q3 - _2q0q2 - ax) + _2q3 * (2.0f * q0q1 + _2q2q3 - ay) - 4.0f * q2 * (1 - 2.0f * q1q1 - 2.0f * q2q2 - az) + (-_4bx * q2 - _2bz * q0) * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - mx) + (_2bx * q1 + _2bz * q3) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - my) + (_2bx * q0 - _4bz * q2) * (_2bx * (q0q2 + q1q3) + _2bz * (0.5f - q1q1 - q2q2) - mz);
+		s3 = _2q1 * (2.0f * q1q3 - _2q0q2 - ax) + _2q2 * (2.0f * q0q1 + _2q2q3 - ay) + (-_4bx * q3 + _2bz * q1) * (_2bx * (0.5f - q2q2 - q3q3) + _2bz * (q1q3 - q0q2) - mx) + (-_2bx * q0 + _2bz * q2) * (_2bx * (q1q2 - q0q3) + _2bz * (q0q1 + q2q3) - my) + _2bx * q1 * (_2bx * (q0q2 + q1q3) + _2bz * (0.5f - q1q1 - q2q2) - mz);
+		recipNorm = invSqrt(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3); // normalise step magnitude
+		s0 *= recipNorm;
+		s1 *= recipNorm;
+		s2 *= recipNorm;
+		s3 *= recipNorm;
+
+		// Apply feedback step
+		qDot1 -= SPATIAL_AHRS_BETA * s0;
+		qDot2 -= SPATIAL_AHRS_BETA * s1;
+		qDot3 -= SPATIAL_AHRS_BETA * s2;
+		qDot4 -= SPATIAL_AHRS_BETA * s3;
+	}
+
+	// Integrate rate of change of quaternion to yield quaternion
+	q0 += qDot1 * (1.0f / sample_rate_in_hz);
+	q1 += qDot2 * (1.0f / sample_rate_in_hz);
+	q2 += qDot3 * (1.0f / sample_rate_in_hz);
+	q3 += qDot4 * (1.0f / sample_rate_in_hz);
+
+	// Normalise quaternion
+	recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+	q0 *= recipNorm;
+	q1 *= recipNorm;
+	q2 *= recipNorm;
+	q3 *= recipNorm;
+
+	spatial_info->orientation_q[0] = q0;
+	spatial_info->orientation_q[1] = q1;
+	spatial_info->orientation_q[2] = q2;
+	spatial_info->orientation_q[3] = q3;
+}
+
+void spatial_ahrs_update_imu(SpatialInfo *spatial_info, 
+    float gx, float gy, float gz, 
+    float ax, float ay, float az) {
 
   // Just a shorthand meant to make this a bit easier to work with, and transact
   // commits (eventually)
@@ -308,68 +394,76 @@ void spatial_ahrs_update(SpatialInfo *spatial_info,
   float q2 = spatial_info->orientation_q[2];
   float q3 = spatial_info->orientation_q[3];
 
-	// auxiliary variables to reduce number of repeated operations
-	float q0q0 = q0*q0;
-	float q0q1 = q0*q1;
-	float q0q2 = q0*q2;
-	float q0q3 = q0*q3;
-	float q1q1 = q1*q1;
-	float q1q2 = q1*q2;
-	float q1q3 = q1*q3;
-	float q2q2 = q2*q2;   
-	float q2q3 = q2*q3;
-	float q3q3 = q3*q3;          
-	
-	// normalise the measurements
-	norm = sqrt(ax*ax + ay*ay + az*az);       
-	ax = ax / norm;
-	ay = ay / norm;
-	az = az / norm;
-	norm = sqrt(mx*mx + my*my + mz*mz);          
-	mx = mx / norm;
-	my = my / norm;
-	mz = mz / norm;         
-	
-	// compute reference direction of flux
-	hx = 2*mx*(0.5 - q2q2 - q3q3) + 2*my*(q1q2 - q0q3) + 2*mz*(q1q3 + q0q2);
-	hy = 2*mx*(q1q2 + q0q3) + 2*my*(0.5 - q1q1 - q3q3) + 2*mz*(q2q3 - q0q1);
-	hz = 2*mx*(q1q3 - q0q2) + 2*my*(q2q3 + q0q1) + 2*mz*(0.5 - q1q1 - q2q2);         
-	bx = sqrt((hx*hx) + (hy*hy));
-	bz = hz;        
-	
-	// estimated direction of gravity and flux (v and w)
-	vx = 2*(q1q3 - q0q2);
-	vy = 2*(q0q1 + q2q3);
-	vz = q0q0 - q1q1 - q2q2 + q3q3;
-	wx = 2*bx*(0.5 - q2q2 - q3q3) + 2*bz*(q1q3 - q0q2);
-	wy = 2*bx*(q1q2 - q0q3) + 2*bz*(q0q1 + q2q3);
-	wz = 2*bx*(q0q2 + q1q3) + 2*bz*(0.5 - q1q1 - q2q2);  
-	
-	// error is sum of cross product between reference direction of fields and direction measured by sensors
-	ex = (ay*vz - az*vy) + (my*wz - mz*wy);
-	ey = (az*vx - ax*vz) + (mz*wx - mx*wz);
-	ez = (ax*vy - ay*vx) + (mx*wy - my*wx);
-	
-	// integral error scaled integral gain
-	spatial_info->exInt = spatial_info->exInt + ex*SPATIAL_AHRS_KI;
-	spatial_info->eyInt = spatial_info->eyInt + ey*SPATIAL_AHRS_KI;
-	spatial_info->ezInt = spatial_info->ezInt + ez*SPATIAL_AHRS_KI;
-	
-	// adjusted gyroscope measurements
-	gx = gx + SPATIAL_AHRS_KP*ex + spatial_info->exInt;
-	gy = gy + SPATIAL_AHRS_KP*ey + spatial_info->eyInt;
-	gz = gz + SPATIAL_AHRS_KP*ez + spatial_info->ezInt;
-	
-	// integrate quaternion rate and normalise
-	q0 = q0 + (-q1*gx - q2*gy - q3*gz)*SPATIAL_AHRS_HALFT;
-	q1 = q1 + (q0*gx + q2*gz - q3*gy)*SPATIAL_AHRS_HALFT;
-	q2 = q2 + (q0*gy - q1*gz + q3*gx)*SPATIAL_AHRS_HALFT;
-	q3 = q3 + (q0*gz + q1*gy - q2*gx)*SPATIAL_AHRS_HALFT;  
-	
-	// normalise quaternion
-	norm = sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3);
-	spatial_info->orientation_q[0] = q0 / norm;
-	spatial_info->orientation_q[1] = q1 / norm;
-	spatial_info->orientation_q[2] = q2 / norm;
-	spatial_info->orientation_q[3] = q3 / norm;
+  float sample_rate_in_hz = 1000.0f / spatial_info->data_rate;
+
+	float recipNorm;
+	float s0, s1, s2, s3;
+	float qDot1, qDot2, qDot3, qDot4;
+	float _2q0, _2q1, _2q2, _2q3, _4q0, _4q1, _4q2 ,_8q1, _8q2, q0q0, q1q1, q2q2, q3q3;
+
+	// Rate of change of quaternion from gyroscope
+	qDot1 = 0.5f * (-q1 * gx - q2 * gy - q3 * gz);
+	qDot2 = 0.5f * (q0 * gx + q2 * gz - q3 * gy);
+	qDot3 = 0.5f * (q0 * gy - q1 * gz + q3 * gx);
+	qDot4 = 0.5f * (q0 * gz + q1 * gy - q2 * gx);
+
+	// Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
+	if(!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
+
+		// Normalise accelerometer measurement
+		recipNorm = invSqrt(ax * ax + ay * ay + az * az);
+		ax *= recipNorm;
+		ay *= recipNorm;
+		az *= recipNorm;   
+
+		// Auxiliary variables to avoid repeated arithmetic
+		_2q0 = 2.0f * q0;
+		_2q1 = 2.0f * q1;
+		_2q2 = 2.0f * q2;
+		_2q3 = 2.0f * q3;
+		_4q0 = 4.0f * q0;
+		_4q1 = 4.0f * q1;
+		_4q2 = 4.0f * q2;
+		_8q1 = 8.0f * q1;
+		_8q2 = 8.0f * q2;
+		q0q0 = q0 * q0;
+		q1q1 = q1 * q1;
+		q2q2 = q2 * q2;
+		q3q3 = q3 * q3;
+
+		// Gradient decent algorithm corrective step
+		s0 = _4q0 * q2q2 + _2q2 * ax + _4q0 * q1q1 - _2q1 * ay;
+		s1 = _4q1 * q3q3 - _2q3 * ax + 4.0f * q0q0 * q1 - _2q0 * ay - _4q1 + _8q1 * q1q1 + _8q1 * q2q2 + _4q1 * az;
+		s2 = 4.0f * q0q0 * q2 + _2q0 * ax + _4q2 * q3q3 - _2q3 * ay - _4q2 + _8q2 * q1q1 + _8q2 * q2q2 + _4q2 * az;
+		s3 = 4.0f * q1q1 * q3 - _2q1 * ax + 4.0f * q2q2 * q3 - _2q2 * ay;
+		recipNorm = invSqrt(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3); // normalise step magnitude
+		s0 *= recipNorm;
+		s1 *= recipNorm;
+		s2 *= recipNorm;
+		s3 *= recipNorm;
+
+		// Apply feedback step
+		qDot1 -= SPATIAL_AHRS_BETA * s0;
+		qDot2 -= SPATIAL_AHRS_BETA * s1;
+		qDot3 -= SPATIAL_AHRS_BETA * s2;
+		qDot4 -= SPATIAL_AHRS_BETA * s3;
+	}
+
+	// Integrate rate of change of quaternion to yield quaternion
+	q0 += qDot1 * (1.0f / sample_rate_in_hz);
+	q1 += qDot2 * (1.0f / sample_rate_in_hz);
+	q2 += qDot3 * (1.0f / sample_rate_in_hz);
+	q3 += qDot4 * (1.0f / sample_rate_in_hz);
+
+	// Normalise quaternion
+	recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+	q0 *= recipNorm;
+	q1 *= recipNorm;
+	q2 *= recipNorm;
+	q3 *= recipNorm;
+
+	spatial_info->orientation_q[0] = q0;
+	spatial_info->orientation_q[1] = q1;
+	spatial_info->orientation_q[2] = q2;
+	spatial_info->orientation_q[3] = q3;
 }

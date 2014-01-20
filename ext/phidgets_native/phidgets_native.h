@@ -227,6 +227,8 @@ int sample_free(SampleRate *sample_rate);
 int sample_zero(SampleRate *sample_rate);
 int sample_tick(SampleRate *sample_rate, CPhidget_Timestamp *ts);
 float invSqrt(float x);
+void quatMult(float *a, float *b, float *ret);
+void quatNorm(float *a);
 
 // Phidget Module
 VALUE phidget_enable_logging(int argc, VALUE *argv, VALUE class);

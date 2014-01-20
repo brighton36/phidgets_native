@@ -227,3 +227,31 @@ float invSqrt(float x) {
   float tmp = *(float*)&i;
   return tmp * (1.69000231f - 0.714158168f * x * tmp * tmp);
 }
+
+
+// Quaternion Multiplication operator. Expects its 4-element arrays in wxyz order 
+void quatMult(float *a, float *b, float *ret) {
+  ret[0] = (b[0] * a[0]) - (b[1] * a[1]) - (b[2] * a[2]) - (b[3] * a[3]);
+  ret[1] = (b[0] * a[1]) + (b[1] * a[0]) + (b[2] * a[3]) - (b[3] * a[2]);
+  ret[2] = (b[0] * a[2]) + (b[2] * a[0]) + (b[3] * a[1]) - (b[1] * a[3]);
+  ret[3] = (b[0] * a[3]) + (b[3] * a[0]) + (b[1] * a[2]) - (b[2] * a[1]);
+
+  return;
+}
+
+// Quaternion Normalization operator. Expects its 4-element arrays in wxyz order 
+void quatNorm(float *a) {
+  float n = a[1]*a[1] + a[2]*a[2] + a[3]*a[3] + a[0]*a[0];
+
+  if (n == 1.0f) 
+    return ;
+
+  n = invSqrt(n);
+
+  a[1]*=n;
+  a[2]*=n;
+  a[3]*=n;
+  a[0]*=n;
+
+  return;
+}

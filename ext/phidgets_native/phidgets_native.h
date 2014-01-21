@@ -266,6 +266,7 @@ int spatial_set_compass_correction_by_array(CPhidgetSpatialHandle phid, double *
 void spatial_ahrs_init(SpatialInfo *spatial_info);
 void spatial_ahrs_update(SpatialInfo *spatial_info, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
 void spatial_ahrs_update_imu(SpatialInfo *spatial_info, float gx, float gy, float gz, float ax, float ay, float az);
+void spatial_madgeq_to_openglq(float *fMadgQ, float *fRetQ);
 
 VALUE spatial_initialize(VALUE self, VALUE serial);
 VALUE spatial_close(VALUE self);

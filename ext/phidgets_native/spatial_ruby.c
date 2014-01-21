@@ -862,30 +862,16 @@ VALUE spatial_orientation_to_quaternion(VALUE self) {
     return Qnil;
 
   float fOrientationQ[4];
+  float fTranslatedQ[4];
   double dblRetQ[4];
 
-  // The Madgwick algorithem uses floats, and ruby wants doubles. Let's cast!
+  // Grabe the magwick quaternion:
   memcpy(&fOrientationQ, &spatial_info->orientation_q, sizeof(fOrientationQ));
 
-  float fTranslatedQ[4];
-  fTranslatedQ[0] = fOrientationQ[0];
-  fTranslatedQ[1] = fOrientationQ[1] * -1.0f;
-  fTranslatedQ[2] = fOrientationQ[2];
-  fTranslatedQ[3] = fOrientationQ[3] * -1.0f;
+  // Translate it into 'our' (aka opengl's) cordinate space:
+  spatial_madgeq_to_openglq((float *) &fOrientationQ, (float *) &fTranslatedQ);
 
-  /*
-  // The Madwick algorithm Uses +x to indicate North, we want +y which means we
-  // need a -90 degree rotation around z. 
-  // First, let's define our 90 degree transform:
-  float fXYRotationQ[4] = {1.0,0,0,1.0}; // wxyz
-  quatNorm((float *) &fXYRotationQ);
-
-  // And then store the Rotation into fTranslatedQ
-  float fTranslatedQ[4];
-  quatMult((float *) &fOrientationQ, (float *) &fXYRotationQ, (float *) &fTranslatedQ);
-  */
-
-  // Cast doubles
+  // The Madgwick algorithem uses floats, and ruby wants doubles. Let's cast!
   for(int i=0; i<4; i++)
     dblRetQ[i] = (double) fTranslatedQ[i];
 

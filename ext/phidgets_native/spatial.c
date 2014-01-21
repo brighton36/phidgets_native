@@ -467,3 +467,22 @@ void spatial_ahrs_update_imu(SpatialInfo *spatial_info,
 	spatial_info->orientation_q[2] = q2;
 	spatial_info->orientation_q[3] = q3;
 }
+
+/*
+  The Madwick algorithm :
+   * Uses +x to indicate North, we want +y which means we need a -90 degree rotation around z. 
+   * Uses the following coordinate system: 
+     http://stackoverflow.com/questions/17788043/madgwicks-sensor-fusion-algorithm-on-ios
+*/
+void spatial_madgeq_to_openglq(float *fMadgQ, float *fRetQ) {
+  float fTmpQ[4];
+  float fXYRotationQ[4] = { sqrt(0.5), 0, 0, -1.0*sqrt(0.5) }; // wxyz
+
+  fTmpQ[0] = fMadgQ[0];
+  fTmpQ[1] = fMadgQ[1] * -1.0f;
+  fTmpQ[2] = fMadgQ[2];
+  fTmpQ[3] = fMadgQ[3] * -1.0f;
+
+  // And then store the Rotation into fTranslatedQ
+  quatMult((float *) &fTmpQ, (float *) &fXYRotationQ, fRetQ);
+}

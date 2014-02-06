@@ -426,6 +426,26 @@ void Init_phidgets_native_spatial(VALUE m_Phidget) {
    * the estimated AHRS orientation of the phidget.
    */
   rb_define_method(c_Spatial, "orientation_to_quaternion", spatial_orientation_to_quaternion, 0);
+
+  /*
+   * Document-method: orientation_to_dcm
+   * call-seq:
+   *   orientation_to_dcm -> Array
+   *
+   * This method returns a 3x3 direction cosine Matrix, which represent
+   * the estimated AHRS orientation of the phidget in 3d space.
+   */
+  rb_define_method(c_Spatial, "orientation_to_dcm", spatial_orientation_to_dcm, 0);
+
+  /*
+   * Document-method: orientation_to_euler
+   * call-seq:
+   *   orientation_to_euler -> Array
+   *
+   * This method returns a 3 element array, which represents the estimated
+   * AHRS orientation of the phidget in 3d space, in euler angles.
+   */
+  rb_define_method(c_Spatial, "orientation_to_euler", spatial_orientation_to_euler, 0);
 }
 
 VALUE spatial_initialize(VALUE self, VALUE serial) {
@@ -877,4 +897,58 @@ VALUE spatial_orientation_to_quaternion(VALUE self) {
 
   // Return our results:
   return double_array_to_rb((double *) &dblRetQ, 4);
+}
+
+VALUE spatial_orientation_to_dcm(VALUE self) {
+  SpatialInfo *spatial_info = device_type_info(self);
+
+  if ( (!spatial_info->is_gyroscope_known) || (spatial_info->gyro_axes != 3) )
+    return Qnil;
+
+  float fOrientationQ[4];
+  float fTranslatedQ[4];
+  float fRetDcm[3][3];
+  double dblRetDcm[3][3];
+
+  // Grabe the magwick quaternion:
+  memcpy(&fOrientationQ, &spatial_info->orientation_q, sizeof(fOrientationQ));
+
+  // Translate it into 'our' (aka opengl's) cordinate space:
+  spatial_madgeq_to_openglq((float *) &fOrientationQ, (float *) &fTranslatedQ);
+
+  quat_to_dcm((float *)&fTranslatedQ, (float (*)[3])&fRetDcm);
+
+  // The dcm uses floats, and ruby wants doubles. Let's cast!
+  for(int i=0; i<3; i++)
+    for(int j=0; j<3; j++)
+      dblRetDcm[i][j] = (double) fRetDcm[i][j];
+
+  return double3x3_to_matrix_rb((double (*)[3])&dblRetDcm);
+}
+
+VALUE spatial_orientation_to_euler(VALUE self) {
+  SpatialInfo *spatial_info = device_type_info(self);
+
+  if ( (!spatial_info->is_gyroscope_known) || (spatial_info->gyro_axes != 3) )
+    return Qnil;
+
+  float fOrientationQ[4];
+  float fTranslatedQ[4];
+  float fEuler[3];
+  double dblRetEuler[3];
+
+  // Grabe the magwick quaternion:
+  memcpy(&fOrientationQ, &spatial_info->orientation_q, sizeof(fOrientationQ));
+
+  // Translate it into 'our' (aka opengl's) cordinate space:
+  spatial_madgeq_to_openglq((float *) &fOrientationQ, (float *) &fTranslatedQ);
+
+  quat_2_euler((float *)&fTranslatedQ, (float (*))&fEuler);
+
+  // The Madgwick algorithem uses floats, and ruby wants doubles. Let's cast!
+  for(int i=0; i<3; i++)
+    dblRetEuler[i] = (double) fEuler[i];
+
+  // Return our results:
+  return double_array_to_rb((double *) &dblRetEuler, 3);
 }

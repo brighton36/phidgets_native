@@ -226,9 +226,10 @@ SampleRate *sample_create();
 int sample_free(SampleRate *sample_rate);
 int sample_zero(SampleRate *sample_rate);
 int sample_tick(SampleRate *sample_rate, CPhidget_Timestamp *ts);
-float invSqrt(float x);
-void quatMult(float *a, float *b, float *ret);
-void quatNorm(float *a);
+float inv_sqrt(float x);
+void quat_mult(float *a, float *b, float *ret);
+void quat_norm(float *a);
+void quat_to_dcm(float *q, float dcm[][3]);
 
 // Phidget Module
 VALUE phidget_enable_logging(int argc, VALUE *argv, VALUE class);
@@ -306,6 +307,8 @@ VALUE spatial_compass_bearing_to_euler(VALUE self);
 VALUE spatial_compass_bearing_to_dcm(VALUE self);
 VALUE spatial_gyro_to_dcm(VALUE self);
 VALUE spatial_orientation_to_quaternion(VALUE self);
+VALUE spatial_orientation_to_dcm(VALUE self);
+VALUE spatial_orientation_to_euler(VALUE self);
 
 int euler_to_3x3dcm(double *mRet, double around_x, double around_y, double around_z, const char *in_order);
 

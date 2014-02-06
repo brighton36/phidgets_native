@@ -222,7 +222,7 @@ int sample_tick(SampleRate *sample_rate, CPhidget_Timestamp *ts) {
 // in accuracy... so we use the close-to-optimal method with low cost from :
 //  http://pizer.wordpress.com/2008/10/12/fast-inverse-square-root 
 // as opposed to: 1.0f / sqrtf(x)
-float invSqrt(float x) {
+float inv_sqrt(float x) {
   unsigned int i = 0x5F1F1412 - (*(unsigned int*)&x >> 1);
   float tmp = *(float*)&i;
   return tmp * (1.69000231f - 0.714158168f * x * tmp * tmp);
@@ -230,7 +230,7 @@ float invSqrt(float x) {
 
 
 // Quaternion Multiplication operator. Expects its 4-element arrays in wxyz order 
-void quatMult(float *a, float *b, float *ret) {
+void quat_mult(float *a, float *b, float *ret) {
   ret[0] = (b[0] * a[0]) - (b[1] * a[1]) - (b[2] * a[2]) - (b[3] * a[3]);
   ret[1] = (b[0] * a[1]) + (b[1] * a[0]) + (b[2] * a[3]) - (b[3] * a[2]);
   ret[2] = (b[0] * a[2]) + (b[2] * a[0]) + (b[3] * a[1]) - (b[1] * a[3]);
@@ -240,13 +240,13 @@ void quatMult(float *a, float *b, float *ret) {
 }
 
 // Quaternion Normalization operator. Expects its 4-element arrays in wxyz order 
-void quatNorm(float *a) {
+void quat_norm(float *a) {
   float n = a[1]*a[1] + a[2]*a[2] + a[3]*a[3] + a[0]*a[0];
 
   if (n == 1.0f) 
     return ;
 
-  n = invSqrt(n);
+  n = inv_sqrt(n);
 
   a[1]*=n;
   a[2]*=n;
@@ -255,3 +255,44 @@ void quatNorm(float *a) {
 
   return;
 }
+
+// Quaternion to direction cosine matrix:
+void quat_to_dcm(float *q, float dcm[][3]) {
+  float q_norm[4];
+
+  memcpy(q, &q_norm, sizeof(q_norm));
+
+  quat_norm((float *)&q_norm);
+
+  dcm[0][0] = q_norm[0]*q_norm[0] + q_norm[1]*q_norm[1]
+      - q_norm[2]*q_norm[2] - q_norm[3]*q_norm[3];
+  dcm[0][1] = 2.0f*(q_norm[1]*q_norm[2] + q_norm[0]*q_norm[3]);
+  dcm[0][2] = 2.0f*(q_norm[1]*q_norm[3] - q_norm[0]*q_norm[2]);
+
+  dcm[1][0] = 2.0f*(q_norm[1]*q_norm[2] - q_norm[0]*q_norm[3]);
+  dcm[1][1] = q_norm[0]*q_norm[0] - q_norm[1]*q_norm[1]
+      + q_norm[2]*q_norm[2] - q_norm[3]*q_norm[3];
+  dcm[1][2] = 2.0f*(q_norm[2]*q_norm[3] + q_norm[0]*q_norm[1]);
+
+  dcm[2][0] = 2.0f*(q_norm[1]*q_norm[3] + q_norm[0]*q_norm[2]);
+  dcm[2][1] = 2.0f*(q_norm[2]*q_norm[3] - q_norm[0]*q_norm[1]);
+  dcm[2][2] = q_norm[0]*q_norm[0] - q_norm[1]*q_norm[1]
+      - q_norm[2]*q_norm[2] + q_norm[3]*q_norm[3];
+
+  return;
+}
+
+// Quaternion to euler:
+void quat_2_euler(float q[4], float e[3])
+{
+   float sqw = q[0]*q[0];
+   float sqx = q[1]*q[1];
+   float sqy = q[2]*q[2];
+   float sqz = q[3]*q[3];
+   e[0] = atan2f(2.f * (q[1]*q[2] + q[3]*q[0]), sqx - sqy - sqz + sqw);
+   e[1] = asinf(-2.f * (q[1]*q[3] - q[2]*q[0]));
+   e[2] = atan2f(2.f * (q[2]*q[3] + q[1]*q[0]), -sqx - sqy + sqz + sqw);
+
+   return;
+}
+

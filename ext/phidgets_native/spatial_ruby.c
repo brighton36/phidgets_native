@@ -907,7 +907,6 @@ VALUE spatial_orientation_to_dcm(VALUE self) {
 
   float fOrientationQ[4];
   float fTranslatedQ[4];
-  float fRetDcm[3][3];
   double dblRetDcm[3][3];
 
   // Grabe the magwick quaternion:
@@ -916,12 +915,7 @@ VALUE spatial_orientation_to_dcm(VALUE self) {
   // Translate it into 'our' (aka opengl's) cordinate space:
   spatial_madgeq_to_openglq((float *) &fOrientationQ, (float *) &fTranslatedQ);
 
-  quat_to_dcm((float *)&fTranslatedQ, (float (*)[3])&fRetDcm);
-
-  // The dcm uses floats, and ruby wants doubles. Let's cast!
-  for(int i=0; i<3; i++)
-    for(int j=0; j<3; j++)
-      dblRetDcm[i][j] = (double) fRetDcm[i][j];
+  quat_to_dcm((float *)&fTranslatedQ, (double (*)[3])&dblRetDcm);
 
   return double3x3_to_matrix_rb((double (*)[3])&dblRetDcm);
 }
@@ -945,11 +939,9 @@ VALUE spatial_orientation_to_euler(VALUE self) {
 
   quat_to_euler((float *)&fTranslatedQ, (float (*))&fEuler);
 
-  // The Madgwick algorithem uses floats, and ruby wants doubles. Also, the 
-  // transformation order coming out of quat_to_euler is in ZYX, and reversed:
-  dblRetEuler[2] = (double) fEuler[0]*-1.0;
-  dblRetEuler[1] = (double) fEuler[1];
-  dblRetEuler[0] = (double) fEuler[2]*-1.0;
+  // The Madgwick algorithem uses floats, and ruby wants doubles. Let's cast!
+  for(int i=0; i<3; i++)
+    dblRetEuler[i] = (double) fEuler[i];
 
   // Return our results:
   return double_array_to_rb((double *) &dblRetEuler, 3);

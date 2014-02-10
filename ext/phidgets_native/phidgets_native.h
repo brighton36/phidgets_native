@@ -229,7 +229,7 @@ int sample_tick(SampleRate *sample_rate, CPhidget_Timestamp *ts);
 float inv_sqrt(float x);
 void quat_mult(float *a, float *b, float *ret);
 void quat_norm(float *a);
-void quat_to_dcm(float *q, float dcm[][3]);
+void quat_to_dcm(float *q, double dcm[][3]);
 void quat_to_euler(float q[4], float e[3]);
 
 // Phidget Module

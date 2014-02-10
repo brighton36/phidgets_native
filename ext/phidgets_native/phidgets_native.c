@@ -256,42 +256,33 @@ void quat_norm(float *a) {
   return;
 }
 
-// Quaternion to direction cosine matrix:
-void quat_to_dcm(float *q, float dcm[][3]) {
-  float q_norm[4];
+// Quaternion to direction cosine matrix. This implementation is a bit lazy, 
+// but it works well enough.
+void quat_to_dcm(float *q, double dcm[][3]) {
+  float fEuler[3];
 
-  memcpy(q, &q_norm, sizeof(q_norm));
+  quat_to_euler(q, (float *)&fEuler);
 
-  quat_norm((float *)&q_norm);
+  double tmpDcm[3][3] = {{1.0,0.0,0.0}, {0.0,1.0,0.0}, {0.0,0.0,1.0}};
 
-  dcm[0][0] = q_norm[0]*q_norm[0] + q_norm[1]*q_norm[1]
-      - q_norm[2]*q_norm[2] - q_norm[3]*q_norm[3];
-  dcm[0][1] = 2.0f*(q_norm[1]*q_norm[2] + q_norm[0]*q_norm[3]);
-  dcm[0][2] = 2.0f*(q_norm[1]*q_norm[3] - q_norm[0]*q_norm[2]);
+  euler_to_3x3dcm((double *)&tmpDcm, 
+      (double) fEuler[0], (double) fEuler[1], (double) fEuler[2], "xyz");
 
-  dcm[1][0] = 2.0f*(q_norm[1]*q_norm[2] - q_norm[0]*q_norm[3]);
-  dcm[1][1] = q_norm[0]*q_norm[0] - q_norm[1]*q_norm[1]
-      + q_norm[2]*q_norm[2] - q_norm[3]*q_norm[3];
-  dcm[1][2] = 2.0f*(q_norm[2]*q_norm[3] + q_norm[0]*q_norm[1]);
-
-  dcm[2][0] = 2.0f*(q_norm[1]*q_norm[3] + q_norm[0]*q_norm[2]);
-  dcm[2][1] = 2.0f*(q_norm[2]*q_norm[3] - q_norm[0]*q_norm[1]);
-  dcm[2][2] = q_norm[0]*q_norm[0] - q_norm[1]*q_norm[1]
-      - q_norm[2]*q_norm[2] + q_norm[3]*q_norm[3];
+  memcpy(dcm, &tmpDcm, sizeof(tmpDcm));
 
   return;
 }
 
 // Quaternion to euler:
 void quat_to_euler(float q[4], float e[3]) {
-   float sqw = q[0]*q[0];
-   float sqx = q[1]*q[1];
-   float sqy = q[2]*q[2];
-   float sqz = q[3]*q[3];
-   e[0] = atan2f(2.f * (q[1]*q[2] + q[3]*q[0]), sqx - sqy - sqz + sqw);
-   e[1] = asinf(-2.f * (q[1]*q[3] - q[2]*q[0]));
-   e[2] = atan2f(2.f * (q[2]*q[3] + q[1]*q[0]), -sqx - sqy + sqz + sqw);
+  float sqw = q[0]*q[0];
+  float sqx = q[1]*q[1];
+  float sqy = q[2]*q[2];
+  float sqz = q[3]*q[3];
+  e[2] = -1.0f * atan2f(2.f * (q[1]*q[2] + q[3]*q[0]), sqx - sqy - sqz + sqw);
+  e[1] = asinf(-2.f * (q[1]*q[3] - q[2]*q[0]));
+  e[0] = -1.0f * atan2f(2.f * (q[2]*q[3] + q[1]*q[0]), -sqx - sqy + sqz + sqw);
 
-   return;
+  return;
 }
 

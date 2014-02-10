@@ -943,11 +943,13 @@ VALUE spatial_orientation_to_euler(VALUE self) {
   // Translate it into 'our' (aka opengl's) cordinate space:
   spatial_madgeq_to_openglq((float *) &fOrientationQ, (float *) &fTranslatedQ);
 
-  quat_2_euler((float *)&fTranslatedQ, (float (*))&fEuler);
+  quat_to_euler((float *)&fTranslatedQ, (float (*))&fEuler);
 
-  // The Madgwick algorithem uses floats, and ruby wants doubles. Let's cast!
-  for(int i=0; i<3; i++)
-    dblRetEuler[i] = (double) fEuler[i];
+  // The Madgwick algorithem uses floats, and ruby wants doubles. Also, the 
+  // transformation order coming out of quat_to_euler is in ZYX, and reversed:
+  dblRetEuler[2] = (double) fEuler[0]*-1.0;
+  dblRetEuler[1] = (double) fEuler[1];
+  dblRetEuler[0] = (double) fEuler[2]*-1.0;
 
   // Return our results:
   return double_array_to_rb((double *) &dblRetEuler, 3);

@@ -283,8 +283,7 @@ void quat_to_dcm(float *q, float dcm[][3]) {
 }
 
 // Quaternion to euler:
-void quat_2_euler(float q[4], float e[3])
-{
+void quat_to_euler(float q[4], float e[3]) {
    float sqw = q[0]*q[0];
    float sqx = q[1]*q[1];
    float sqy = q[2]*q[2];

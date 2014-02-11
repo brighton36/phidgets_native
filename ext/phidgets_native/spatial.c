@@ -243,15 +243,23 @@ int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidget
       float ay = (float) data[i]->acceleration[1];
       float az = (float) data[i]->acceleration[2];
 
-      if (spatial_info->is_compass_known) 
-        // We have enough info for a MARG update:
-        spatial_ahrs_update(spatial_info, gx, gy, gz, ax, ay, az,
-          (float) data[i]->magneticField[0], 
-          (float) data[i]->magneticField[1], 
-          (float) data[i]->magneticField[2]);
-      else
-        // We only have enough info for a IMU update:
-        spatial_ahrs_update_imu(spatial_info, gx, gy, gz, ax, ay, az);
+      if (spatial_info->is_first_orientation_pass) {
+        if (spatial_info->is_compass_known)
+          spatial_ahrs_first_pass(spatial_info, ax, ay, az,
+            (float) data[i]->magneticField[0], 
+            (float) data[i]->magneticField[1], 
+            (float) data[i]->magneticField[2]);
+      } else {
+        if (spatial_info->is_compass_known) 
+          // We have enough info for a MARG update:
+          spatial_ahrs_update(spatial_info, gx, gy, gz, ax, ay, az,
+            (float) data[i]->magneticField[0], 
+            (float) data[i]->magneticField[1], 
+            (float) data[i]->magneticField[2]);
+        else
+          // We only have enough info for a IMU update:
+          spatial_ahrs_update_imu(spatial_info, gx, gy, gz, ax, ay, az);
+      }
     }
 
     // We'll need this on the next go around:
@@ -272,7 +280,34 @@ void spatial_ahrs_init(SpatialInfo *spatial_info) {
   spatial_info->orientation_q[2] = 0.0;
   spatial_info->orientation_q[3] = 0.0;
 
+  spatial_info->is_first_orientation_pass = true;
   return;
+}
+
+void spatial_ahrs_first_pass(SpatialInfo *spatial_info, 
+  float ax, float ay, float az, 
+  float mx, float my, float mz) {
+
+  float fIdentQ[4] = {1.0, 0.0, 0.0, 0.0};
+  float fTmpQ[4];
+  float fRetQ[4];
+
+
+
+
+  // TODO: This should be computed from the ground vector:
+  float fAccelQ[4] = { 0, 0.0, 1.0, 0.0};
+  quat_mult((float *) &fIdentQ, (float *) &fAccelQ, (float *)&fTmpQ);
+
+  // Compass time:
+  // TODO: this should be the Compass heading, rotated by 90 degrees around Z
+  float fCompassQ[4] = { sqrt(0.5), 0.0, 0.0, -1.0*sqrt(0.5)}; // wxyz
+  quat_mult((float *) &fTmpQ, (float *) &fCompassQ, (float *)&fRetQ);
+
+  // Now commit this to the rotation state:
+  memcpy(spatial_info->orientation_q, &fRetQ, sizeof(fRetQ));
+
+  spatial_info->is_first_orientation_pass = false;
 }
 
 void spatial_ahrs_update(SpatialInfo *spatial_info, 

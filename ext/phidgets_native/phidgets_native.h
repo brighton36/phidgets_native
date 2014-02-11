@@ -100,6 +100,9 @@ typedef struct spatial_info {
 
   // quaternion elements representing the estimated orientation
   float orientation_q[4];
+
+  // This tells us whether it's our first pass
+  bool is_first_orientation_pass;
 } SpatialInfo;
 
 typedef struct gps_info {
@@ -227,9 +230,9 @@ int sample_free(SampleRate *sample_rate);
 int sample_zero(SampleRate *sample_rate);
 int sample_tick(SampleRate *sample_rate, CPhidget_Timestamp *ts);
 float inv_sqrt(float x);
-void quat_mult(float *a, float *b, float *ret);
-void quat_norm(float *a);
-void quat_to_dcm(float *q, double dcm[][3]);
+void quat_mult(float a[4], float b[4], float ret[4]);
+void quat_norm(float a[4]);
+void quat_to_dcm(float q[4], double dcm[][3]);
 void quat_to_euler(float q[4], float e[3]);
 
 // Phidget Module
@@ -268,6 +271,7 @@ int spatial_set_compass_correction_by_array(CPhidgetSpatialHandle phid, double *
 void spatial_ahrs_init(SpatialInfo *spatial_info);
 void spatial_ahrs_update(SpatialInfo *spatial_info, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
 void spatial_ahrs_update_imu(SpatialInfo *spatial_info, float gx, float gy, float gz, float ax, float ay, float az);
+void spatial_ahrs_first_pass(SpatialInfo *spatial_info, float ax, float ay, float az, float mx, float my, float mz);
 void spatial_madgeq_to_openglq(float *fMadgQ, float *fRetQ);
 
 VALUE spatial_initialize(VALUE self, VALUE serial);

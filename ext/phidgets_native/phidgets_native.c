@@ -230,7 +230,7 @@ float inv_sqrt(float x) {
 
 
 // Quaternion Multiplication operator. Expects its 4-element arrays in wxyz order 
-void quat_mult(float *a, float *b, float *ret) {
+void quat_mult(float a[4], float b[4], float ret[4]) {
   ret[0] = (b[0] * a[0]) - (b[1] * a[1]) - (b[2] * a[2]) - (b[3] * a[3]);
   ret[1] = (b[0] * a[1]) + (b[1] * a[0]) + (b[2] * a[3]) - (b[3] * a[2]);
   ret[2] = (b[0] * a[2]) + (b[2] * a[0]) + (b[3] * a[1]) - (b[1] * a[3]);
@@ -240,7 +240,7 @@ void quat_mult(float *a, float *b, float *ret) {
 }
 
 // Quaternion Normalization operator. Expects its 4-element arrays in wxyz order 
-void quat_norm(float *a) {
+void quat_norm(float a[4]) {
   float n = a[1]*a[1] + a[2]*a[2] + a[3]*a[3] + a[0]*a[0];
 
   if (n == 1.0f) 
@@ -258,7 +258,7 @@ void quat_norm(float *a) {
 
 // Quaternion to direction cosine matrix. This implementation is a bit lazy, 
 // but it works well enough.
-void quat_to_dcm(float *q, double dcm[][3]) {
+void quat_to_dcm(float q[4], double dcm[][3]) {
   float fEuler[3];
 
   quat_to_euler(q, (float *)&fEuler);

@@ -275,6 +275,7 @@ int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidget
 // https://code.google.com/p/imumargalgorithm30042010sohm/
 void spatial_ahrs_init(SpatialInfo *spatial_info) {
   // Quaternion elements representing the estimated orientation
+  // TODO: remove this method? and this init?
   spatial_info->orientation_q[0] = 1.0;
   spatial_info->orientation_q[1] = 0.0;
   spatial_info->orientation_q[2] = 0.0;
@@ -288,23 +289,70 @@ void spatial_ahrs_first_pass(SpatialInfo *spatial_info,
   float ax, float ay, float az, 
   float mx, float my, float mz) {
 
-  float fIdentQ[4] = {1.0, 0.0, 0.0, 0.0};
   float fTmpQ[4];
-  float fRetQ[4];
 
+  // We start with the Identity:
+  float fRetQ[4] = {1.0, 0.0, 0.0, 0.0};
 
+  // TODO: this was copy pasta'd, should be DRY'er:
+  double dbl_comp_x = mx;
+  double dbl_comp_y = my;
+  double dbl_comp_z = mz;
+
+  /*
+   * Roll Angle - about axis 0
+   *  tan(roll) = gy/gz
+   *  Use Atan2 so we have an output os (-180 - 180) degrees
+   */
+  double dbl_grv_roll = atan2(ay, az);
+
+  /*
+   * Pitch Angle - about axis 1
+   *   tan(pitch) = -gx / (gy * sin(roll angle) * gz * cos(roll angle))
+   *   Pitch angle range is (-90 - 90) degrees
+   */
+  double dbl_grv_pitch = atan(-1.0 * ax / (ay * sin(dbl_grv_roll) + az * cos(dbl_grv_roll)));
+
+  /*
+   * Yaw Angle - about axis 2
+   *   tan(yaw) = (mz * sin(roll) – my * cos(roll)) / 
+   *              (mx * cos(pitch) + my * sin(pitch) * sin(roll) + mz * sin(pitch) * cos(roll))
+   *   Use Atan2 to get our range in (-180 - 180)
+   *
+   *   Yaw angle == 0 degrees when axis 0 is pointing at magnetic north
+   */
+  double dbl_yaw = atan2( (dbl_comp_z * sin(dbl_grv_roll)) - (dbl_comp_y * cos(dbl_grv_roll)),
+     (dbl_comp_x * cos(dbl_grv_pitch)) + 
+     (dbl_comp_y * sin(dbl_grv_pitch) * sin(dbl_grv_roll)) + 
+     (dbl_comp_z * sin(dbl_grv_pitch) * cos(dbl_grv_roll)) );
+  // End copy pasta
 
 
   // TODO: This should be computed from the ground vector:
-  float fAccelQ[4] = { 0, 0.0, 1.0, 0.0};
-  quat_mult((float *) &fIdentQ, (float *) &fAccelQ, (float *)&fTmpQ);
+  // Rotate the Ret 180 degrees around 'x', forcing the model 'upright':
+  float fTranslateUprightQ[4] = {0.0, 0.0, 1.0, 0.0};
+  quat_mult((float *) &fRetQ, (float *) &fTranslateUprightQ, (float *)&fTmpQ);
+  memcpy(&fRetQ, &fTmpQ, sizeof(fRetQ));
 
-  // Compass time:
-  // TODO: this should be the Compass heading, rotated by 90 degrees around Z
-  float fCompassQ[4] = { sqrt(0.5), 0.0, 0.0, -1.0*sqrt(0.5)}; // wxyz
-  quat_mult((float *) &fTmpQ, (float *) &fCompassQ, (float *)&fRetQ);
+  // Now Rotate the the Quat around our 'Z' so that we're facing North:
+  float fCompassQ[4]; //   = {sqrt(0.5), 0.0, 0.0, -1.0*sqrt(0.5)};
 
-  // Now commit this to the rotation state:
+  double zaxis[3] = {0.0, 0.0, 1.0} ;
+
+  double bearing_in_rad = (az < 0) ? (dbl_yaw - M_PI_2) : (dbl_yaw - M_PI * 1.5);
+
+  printf("Bearing was .. %lf\r\n", bearing_in_rad);
+
+  // NOTE, Due to the madgwick origin, -0.5*M_PI is North, and we add the 
+  // bearing offset to this angle
+  quat_from_axis_and_angle((double *) &zaxis, -0.5*M_PI+bearing_in_rad, (float *) &fCompassQ);
+
+  quat_mult((float *) &fRetQ, (float *) &fCompassQ, (float *)&fTmpQ);
+  memcpy(&fRetQ, &fTmpQ, sizeof(fRetQ));
+
+  printf("we ended up with .. %f, %f, %f, %f\r\n", fRetQ[0], fRetQ[1], fRetQ[2], fRetQ[3]);
+
+  // Now commit this to the persisting orientation state:
   memcpy(spatial_info->orientation_q, &fRetQ, sizeof(fRetQ));
 
   spatial_info->is_first_orientation_pass = false;

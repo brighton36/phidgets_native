@@ -915,7 +915,7 @@ VALUE spatial_orientation_to_dcm(VALUE self) {
   // Translate it into 'our' (aka opengl's) cordinate space:
   spatial_madgeq_to_openglq((float *) &fOrientationQ, (float *) &fTranslatedQ);
 
-  quat_to_dcm((float *)&fTranslatedQ, (double (*)[3])&dblRetDcm);
+  quat_to_dcm((float *)&fTranslatedQ, (double (*)[3]) &dblRetDcm);
 
   return double3x3_to_matrix_rb((double (*)[3])&dblRetDcm);
 }

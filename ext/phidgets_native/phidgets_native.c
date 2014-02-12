@@ -286,3 +286,15 @@ void quat_to_euler(float q[4], float e[3]) {
   return;
 }
 
+// Given an axis, and a angle (in radians), construct a quat
+// NOTE: Assumes axis is already normalised
+void quat_from_axis_and_angle(double axis[3], double angle, float fRetQ[4]) {
+  double s = sin(angle/2);
+  fRetQ[0] = cos(angle/2); // w
+  fRetQ[1] = axis[0] * s;  // x
+  fRetQ[2] = axis[1] * s;  // y
+  fRetQ[3] = axis[2] * s;  // z
+
+  return;
+}
+

@@ -234,6 +234,7 @@ void quat_mult(float a[4], float b[4], float ret[4]);
 void quat_norm(float a[4]);
 void quat_to_dcm(float q[4], double dcm[][3]);
 void quat_to_euler(float q[4], float e[3]);
+void quat_from_axis_and_angle(double axis[3], double angle, float fRetQ[4]);
 
 // Phidget Module
 VALUE phidget_enable_logging(int argc, VALUE *argv, VALUE class);

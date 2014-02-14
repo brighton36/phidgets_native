@@ -102,7 +102,7 @@ typedef struct spatial_info {
   float orientation_q[4];
 
   // This tells us whether it's our first pass
-  bool is_first_orientation_pass;
+  bool is_ahrs_initialized;
 } SpatialInfo;
 
 typedef struct gps_info {
@@ -269,10 +269,10 @@ int CCONV spatial_on_attach(CPhidgetHandle phid, void *userptr);
 int CCONV spatial_on_detach(CPhidgetHandle phid, void *userptr);
 int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidgetSpatial_SpatialEventDataHandle *data, int count);
 int spatial_set_compass_correction_by_array(CPhidgetSpatialHandle phid, double *correction);
-void spatial_ahrs_init(SpatialInfo *spatial_info);
 void spatial_ahrs_update(SpatialInfo *spatial_info, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
 void spatial_ahrs_update_imu(SpatialInfo *spatial_info, float gx, float gy, float gz, float ax, float ay, float az);
-void spatial_ahrs_first_pass(SpatialInfo *spatial_info, float ax, float ay, float az, float mx, float my, float mz);
+void spatial_ahrs_init(SpatialInfo *spatial_info, double ax, double ay, double az, double mx, double my, double mz);
+void spatial_orientation_from_accel_and_compass(double dRetEuler[3], double ax, double ay, double az, double mx, double my, double mz);
 void spatial_madgeq_to_openglq(float *fMadgQ, float *fRetQ);
 
 VALUE spatial_initialize(VALUE self, VALUE serial);

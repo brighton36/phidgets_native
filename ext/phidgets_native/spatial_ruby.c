@@ -457,6 +457,12 @@ VALUE spatial_initialize(VALUE self, VALUE serial) {
   spatial_info->data_rate = DEFAULT_SPATIAL_DATA_RATE;
   spatial_info->sample_rate = sample_create();
 
+  // Ahrs Defaults:
+  spatial_info->orientation_q[0] = 1.0;
+  spatial_info->orientation_q[1] = 0.0;
+  spatial_info->orientation_q[2] = 0.0;
+  spatial_info->orientation_q[3] = 0.0;
+
   // Setup a spatial handle
   CPhidgetSpatialHandle spatial = 0;
   ensure(CPhidgetSpatial_create(&spatial));
@@ -580,7 +586,7 @@ VALUE spatial_zero_gyro(VALUE self) {
 
   ensure(CPhidgetSpatial_zeroGyro((CPhidgetSpatialHandle) info->handle));
   memset(spatial_info->gyroscope, 0, sizeof(double) * spatial_info->gyro_axes);
-  spatial_ahrs_init(spatial_info);
+  spatial_info->is_ahrs_initialized = false;
 
   return Qnil;
 }
@@ -619,7 +625,7 @@ VALUE spatial_compass_correction_set(VALUE self, VALUE compass_correction) {
     if (info->is_attached) {
       spatial_set_compass_correction_by_array( 
         (CPhidgetSpatialHandle)info->handle, spatial_info->compass_correction);
-      spatial_ahrs_init(spatial_info);
+      spatial_info->is_ahrs_initialized = false;
     }
   }
 
@@ -719,31 +725,16 @@ VALUE spatial_accelerometer_to_roll_and_pitch(VALUE self) {
 
   if (!spatial_info->is_acceleration_known) return Qnil;
 
-  // We want a local copy to work with here:
-  double *acceleration = ALLOC_N(double, spatial_info->accelerometer_axes); 
-  memcpy(acceleration, spatial_info->acceleration, sizeof(double) * spatial_info->accelerometer_axes);
-
-  /*
-   * Roll Angle - about axis 0
-   *  tan(roll) = gy/gz
-   *  Use Atan2 so we have an output os (-180 - 180) degrees
-   */
-  double dbl_roll = atan2(acceleration[1], acceleration[2]);
-
-  /*
-   * Pitch Angle - about axis 1
-   *   tan(pitch) = -gx / (gy * sin(roll angle) * gz * cos(roll angle))
-   *   Pitch angle range is (-90 - 90) degrees
-   */
-  double dbl_pitch = atan(-1.0 * acceleration[0] / (acceleration[1] * sin(dbl_roll) + acceleration[2] * cos(dbl_roll)));
-
-  xfree(acceleration);
+  double dOrientEuler[3];
+  spatial_orientation_from_accel_and_compass( (double *)&dOrientEuler, 
+    spatial_info->acceleration[0], spatial_info->acceleration[1], spatial_info->acceleration[2], 
+    spatial_info->compass[0], spatial_info->compass[1], spatial_info->compass[2]);
 
   // Construct a splat-able return of roll and pitch:
   VALUE aryRet = rb_ary_new2(2);
 
-  rb_ary_store(aryRet, 0, rb_float_new(dbl_roll));
-  rb_ary_store(aryRet, 1, rb_float_new(dbl_pitch));
+  rb_ary_store(aryRet, 0, rb_float_new(dOrientEuler[1])); // Roll
+  rb_ary_store(aryRet, 1, rb_float_new(dOrientEuler[0])); // Pitch
 
   return aryRet;
 }

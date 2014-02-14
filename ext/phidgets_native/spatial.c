@@ -143,7 +143,7 @@ int CCONV spatial_on_attach(CPhidgetHandle phid, void *userptr) {
   }
 
   // Ahrs Values:
-  spatial_ahrs_init(spatial_info);
+  spatial_info->is_ahrs_initialized = false;
 
 	// Set the data rate for the spatial events in milliseconds. 
   // Note that 1000/16 = 62.5 Hz
@@ -235,21 +235,24 @@ int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidget
         NULL);
 
       // Madgwick Orientation time - Update the ahrs: 
-      float gx = (float) angular_rate_in_rad[0];
-      float gy = (float) angular_rate_in_rad[1];
-      float gz = (float) angular_rate_in_rad[2];
-
-      float ax = (float) data[i]->acceleration[0];
-      float ay = (float) data[i]->acceleration[1];
-      float az = (float) data[i]->acceleration[2];
-
-      if (spatial_info->is_first_orientation_pass) {
+      if (!spatial_info->is_ahrs_initialized) {
         if (spatial_info->is_compass_known)
-          spatial_ahrs_first_pass(spatial_info, ax, ay, az,
-            (float) data[i]->magneticField[0], 
-            (float) data[i]->magneticField[1], 
-            (float) data[i]->magneticField[2]);
+          spatial_ahrs_init(spatial_info,
+            data[i]->acceleration[0],
+            data[i]->acceleration[1],
+            data[i]->acceleration[2],
+            data[i]->magneticField[0], 
+            data[i]->magneticField[1], 
+            data[i]->magneticField[2]);
       } else {
+        float gx = (float) angular_rate_in_rad[0];
+        float gy = (float) angular_rate_in_rad[1];
+        float gz = (float) angular_rate_in_rad[2];
+
+        float ax = (float) data[i]->acceleration[0];
+        float ay = (float) data[i]->acceleration[1];
+        float az = (float) data[i]->acceleration[2];
+
         if (spatial_info->is_compass_known) 
           // We have enough info for a MARG update:
           spatial_ahrs_update(spatial_info, gx, gy, gz, ax, ay, az,
@@ -270,34 +273,9 @@ int CCONV spatial_on_data(CPhidgetSpatialHandle spatial, void *userptr, CPhidget
   return 0;
 }
 
-// NOTE: The spatial_ahrs_* functions were largely copied from Madgwick's 
-// Quaternion implementation of the 'DCM filter' 
-// https://code.google.com/p/imumargalgorithm30042010sohm/
-void spatial_ahrs_init(SpatialInfo *spatial_info) {
-  // Quaternion elements representing the estimated orientation
-  // TODO: remove this method? and this init?
-  spatial_info->orientation_q[0] = 1.0;
-  spatial_info->orientation_q[1] = 0.0;
-  spatial_info->orientation_q[2] = 0.0;
-  spatial_info->orientation_q[3] = 0.0;
-
-  spatial_info->is_first_orientation_pass = true;
-  return;
-}
-
-void spatial_ahrs_first_pass(SpatialInfo *spatial_info, 
-  float ax, float ay, float az, 
-  float mx, float my, float mz) {
-
-  float fTmpQ[4];
-
-  // We start with the Identity:
-  float fRetQ[4] = {1.0, 0.0, 0.0, 0.0};
-
-  // TODO: this was copy pasta'd, should be DRY'er:
-  double dbl_comp_x = mx;
-  double dbl_comp_y = my;
-  double dbl_comp_z = mz;
+void spatial_orientation_from_accel_and_compass(double dRetEuler[3], 
+  double ax, double ay, double az, 
+  double mx, double my, double mz) {
 
   /*
    * Roll Angle - about axis 0
@@ -321,49 +299,56 @@ void spatial_ahrs_first_pass(SpatialInfo *spatial_info,
    *
    *   Yaw angle == 0 degrees when axis 0 is pointing at magnetic north
    */
-  double dbl_yaw = atan2( (dbl_comp_z * sin(dbl_grv_roll)) - (dbl_comp_y * cos(dbl_grv_roll)),
-     (dbl_comp_x * cos(dbl_grv_pitch)) + 
-     (dbl_comp_y * sin(dbl_grv_pitch) * sin(dbl_grv_roll)) + 
-     (dbl_comp_z * sin(dbl_grv_pitch) * cos(dbl_grv_roll)) );
-  // End copy pasta
+  double dbl_yaw = atan2( (mz * sin(dbl_grv_roll)) - (my * cos(dbl_grv_roll)),
+     (mx * cos(dbl_grv_pitch)) + 
+     (my * sin(dbl_grv_pitch) * sin(dbl_grv_roll)) + 
+     (mz * sin(dbl_grv_pitch) * cos(dbl_grv_roll)) );
+
+  dRetEuler[0] = dbl_grv_pitch;
+  dRetEuler[1] = dbl_grv_roll;
+  dRetEuler[2] = dbl_yaw;
+
+  return;
+}
 
 
-  // TODO: Let's try a euler here?
-  double xaxis[3] = {1.0, 0.0, 0.0} ;
-  double yaxis[3] = {0.0, 1.0, 0.0} ;
-  double zaxis[3] = {0.0, 0.0, 1.0} ;
-  
+// NOTE: The spatial_ahrs_* functions were largely copied from Madgwick's 
+// Quaternion implementation of the 'DCM filter' 
+// https://code.google.com/p/imumargalgorithm30042010sohm/
+void spatial_ahrs_init(SpatialInfo *spatial_info, 
+  double ax, double ay, double az, 
+  double mx, double my, double mz) {
+
+  double xaxis[3] = {1.0, 0.0, 0.0};
+  double yaxis[3] = {0.0, 1.0, 0.0};
+  double zaxis[3] = {0.0, 0.0, 1.0};
+
+  // We'll assume the current state by way of the accelerometer and compass readings:
+  double dOrientEuler[3];
+  spatial_orientation_from_accel_and_compass((double *)&dOrientEuler, ax, ay, az, mx, my, mz);
+
+  // Now we construct a Roll & Pitch Quat from the Euler's
   float fRollQ[4];
+  quat_from_axis_and_angle((double *) &xaxis, dOrientEuler[1], (float *) &fRollQ);
+
   float fPitchQ[4];
-  quat_from_axis_and_angle((double *) &xaxis, dbl_grv_roll, (float *) &fRollQ);
-  quat_from_axis_and_angle((double *) &yaxis, dbl_grv_pitch, (float *) &fPitchQ);
+  quat_from_axis_and_angle((double *) &yaxis, dOrientEuler[0], (float *) &fPitchQ);
 
-  quat_mult((float *) &fRollQ, (float *) &fPitchQ, (float *)&fTmpQ);
+  float fRollPitchQ[4];
+  quat_mult((float *) &fRollQ, (float *) &fPitchQ, (float *)&fRollPitchQ);
 
-  /*
-   * NOTE: this block will upright the model:
-  // TODO: This should be computed from the ground vector:
-  // Rotate the Ret 180 degrees around 'x', forcing the model 'upright':
-  float fTranslateUprightQ[4] = {0.0, 0.0, 1.0, 0.0};
-  quat_mult((float *) &fRetQ, (float *) &fTranslateUprightQ, (float *)&fTmpQ);
-  memcpy(&fRetQ, &fTmpQ, sizeof(fRetQ));
-  */
-
-  // Now Rotate the the Quat around our 'Z' so that we're facing North:
-  float fCompassQ[4]; //   = {sqrt(0.5), 0.0, 0.0, -1.0*sqrt(0.5)};
-
-  double bearing_in_rad = -1.0*M_PI+dbl_yaw;
-
+  // Rotate the the Quat around our 'Z' so that we're facing North:
   // NOTE, Due to the madgwick origin, -0.5*M_PI is North, and we add the 
   // bearing offset to this angle
-  quat_from_axis_and_angle((double *) &zaxis, bearing_in_rad - M_PI, (float *) &fCompassQ);
+  double bearing_in_rad = 2*M_PI+dOrientEuler[2]; 
 
-  quat_mult((float *) &fTmpQ, (float *) &fCompassQ, (float *)&fRetQ);
+  float fCompassQ[4];
+  quat_from_axis_and_angle((double *) &zaxis, bearing_in_rad, (float *) &fCompassQ);
 
-  // Now commit this to the persisting orientation state:
-  memcpy(spatial_info->orientation_q, &fRetQ, sizeof(fRetQ));
+  // Commit this to the persisting orientation state:
+  quat_mult((float *) &fRollPitchQ, (float *) &fCompassQ, (float *) spatial_info->orientation_q);
 
-  spatial_info->is_first_orientation_pass = false;
+  spatial_info->is_ahrs_initialized = true;
 }
 
 void spatial_ahrs_update(SpatialInfo *spatial_info, 

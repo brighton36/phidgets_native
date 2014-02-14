@@ -328,29 +328,37 @@ void spatial_ahrs_first_pass(SpatialInfo *spatial_info,
   // End copy pasta
 
 
+  // TODO: Let's try a euler here?
+  double xaxis[3] = {1.0, 0.0, 0.0} ;
+  double yaxis[3] = {0.0, 1.0, 0.0} ;
+  double zaxis[3] = {0.0, 0.0, 1.0} ;
+  
+  float fRollQ[4];
+  float fPitchQ[4];
+  quat_from_axis_and_angle((double *) &xaxis, dbl_grv_roll, (float *) &fRollQ);
+  quat_from_axis_and_angle((double *) &yaxis, dbl_grv_pitch, (float *) &fPitchQ);
+
+  quat_mult((float *) &fRollQ, (float *) &fPitchQ, (float *)&fTmpQ);
+
+  /*
+   * NOTE: this block will upright the model:
   // TODO: This should be computed from the ground vector:
   // Rotate the Ret 180 degrees around 'x', forcing the model 'upright':
   float fTranslateUprightQ[4] = {0.0, 0.0, 1.0, 0.0};
   quat_mult((float *) &fRetQ, (float *) &fTranslateUprightQ, (float *)&fTmpQ);
   memcpy(&fRetQ, &fTmpQ, sizeof(fRetQ));
+  */
 
   // Now Rotate the the Quat around our 'Z' so that we're facing North:
   float fCompassQ[4]; //   = {sqrt(0.5), 0.0, 0.0, -1.0*sqrt(0.5)};
 
-  double zaxis[3] = {0.0, 0.0, 1.0} ;
-
-  double bearing_in_rad = (az < 0) ? (dbl_yaw - M_PI_2) : (dbl_yaw - M_PI * 1.5);
-
-  printf("Bearing was .. %lf\r\n", bearing_in_rad);
+  double bearing_in_rad = -1.0*M_PI+dbl_yaw;
 
   // NOTE, Due to the madgwick origin, -0.5*M_PI is North, and we add the 
   // bearing offset to this angle
-  quat_from_axis_and_angle((double *) &zaxis, -0.5*M_PI+bearing_in_rad, (float *) &fCompassQ);
+  quat_from_axis_and_angle((double *) &zaxis, bearing_in_rad - M_PI, (float *) &fCompassQ);
 
-  quat_mult((float *) &fRetQ, (float *) &fCompassQ, (float *)&fTmpQ);
-  memcpy(&fRetQ, &fTmpQ, sizeof(fRetQ));
-
-  printf("we ended up with .. %f, %f, %f, %f\r\n", fRetQ[0], fRetQ[1], fRetQ[2], fRetQ[3]);
+  quat_mult((float *) &fTmpQ, (float *) &fCompassQ, (float *)&fRetQ);
 
   // Now commit this to the persisting orientation state:
   memcpy(spatial_info->orientation_q, &fRetQ, sizeof(fRetQ));

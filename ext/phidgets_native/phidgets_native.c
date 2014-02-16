@@ -256,22 +256,43 @@ void quat_norm(float a[4]) {
   return;
 }
 
-// Quaternion to direction cosine matrix. This implementation is a bit lazy, 
-// but it works well enough.
+// Quaternion to direction cosine matrix. Simple enough: 
 void quat_to_dcm(float q[4], double dcm[][3]) {
-  float fEuler[3];
+  float q_w = q[0];
+  float q_x = q[1];
+  float q_y = q[2];
+  float q_z = q[3];
 
-  quat_to_euler(q, (float *)&fEuler);
+  float sqw = q_w*q_w;
+  float sqx = q_x*q_x;
+  float sqy = q_y*q_y;
+  float sqz = q_z*q_z;
 
-  double tmpDcm[3][3] = {{1.0,0.0,0.0}, {0.0,1.0,0.0}, {0.0,0.0,1.0}};
+  // invs (inverse square length) is only required if quaternion is not already normalised
+  float invs = 1 / (sqx + sqy + sqz + sqw);
+  dcm[0][0] = ( sqx - sqy - sqz + sqw)*invs; // since sqw + sqx + sqy + sqz =1/invs*invs
+  dcm[1][1] = (-sqx + sqy - sqz + sqw)*invs;
+  dcm[2][2] = (-sqx - sqy + sqz + sqw)*invs;
 
-  euler_to_3x3dcm((double *)&tmpDcm, 
-      (double) fEuler[0], (double) fEuler[1], (double) fEuler[2], "xyz");
+  float tmp1 = q_x*q_y;
+  float tmp2 = q_z*q_w;
 
-  memcpy(dcm, &tmpDcm, sizeof(tmpDcm));
+  dcm[1][0] = 2.0 * (tmp1 + tmp2)*invs;
+  dcm[0][1] = 2.0 * (tmp1 - tmp2)*invs;
+
+  tmp1 = q_x*q_z;
+  tmp2 = q_y*q_w;
+  dcm[2][0] = 2.0 * (tmp1 - tmp2)*invs;
+  dcm[0][2] = 2.0 * (tmp1 + tmp2)*invs;
+
+  tmp1 = q_y*q_z;
+  tmp2 = q_x*q_w;
+  dcm[2][1] = 2.0 * (tmp1 + tmp2)*invs;
+  dcm[1][2] = 2.0 * (tmp1 - tmp2)*invs;      
 
   return;
 }
+
 
 // Quaternion to euler:
 void quat_to_euler(float q[4], float e[3]) {

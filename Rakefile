@@ -1,5 +1,6 @@
 # File: Rakefile
 
+require 'rake'
 require 'rake/extensiontask'
 require 'rake/packagetask'
 require 'rdoc/task'

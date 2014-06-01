@@ -175,6 +175,10 @@ Note that you can also use the log method to send your own messages to the logge
 if you think you have something you need to add.
 
 =Changelog
+== Version 0.2.5
+- Added orientation tracking code to the Spatial sensor via the Madgwick AHRS library
+- Fixed compile issues on ARM
+
 == Version 0.2.1
 - Added dual-ratiometric mode features and interfaces to the InterfaceKit
 

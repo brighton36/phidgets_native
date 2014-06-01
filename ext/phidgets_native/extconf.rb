@@ -20,6 +20,6 @@ end
 
 dir_config extension_name
 
-$CFLAGS << ' -Wno-unused-variable -std=gnu99'
+$CFLAGS << ' -Wno-unused-variable -Wno-declaration-after-statement -std=gnu99'
 
 create_makefile extension_name

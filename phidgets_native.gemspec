@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name    = "phidgets_native"
-  s.version = "0.2.3"
+  s.version = "0.2.5"
   s.summary = "Native C-extension gem for the Phidgets library in ruby"
   s.author  = "Chris DeRose"
   s.description = s.summary
